@@ -1877,6 +1877,11 @@ RppStatus rppt_glitch_gpu(RppPtr_t srcPtr,
                           rppHandle_t rppHandle)
 {
 #ifdef HIP_COMPILE
+    if (srcDescPtr->c != 3)
+    {
+        return RPP_ERROR_INVALID_CHANNELS;
+    }
+
     if ((srcDescPtr->dataType == RpptDataType::U8) && (dstDescPtr->dataType == RpptDataType::U8))
     {
         hip_exec_glitch_tensor(static_cast<Rpp8u*>(srcPtr) + srcDescPtr->offsetInBytes,
