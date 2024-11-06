@@ -879,6 +879,10 @@ RppStatus rppt_glitch_host(RppPtr_t srcPtr,
                            RpptRoiType roiType,
                            rppHandle_t rppHandle)
 {
+    if (srcDescPtr->c != 3)
+    {
+        return RPP_ERROR_INVALID_CHANNELS;
+    }
     RppLayoutParams layoutParams = get_layout_params(srcDescPtr->layout, srcDescPtr->c);
     if ((srcDescPtr->dataType == RpptDataType::U8) && (dstDescPtr->dataType == RpptDataType::U8))
     {
