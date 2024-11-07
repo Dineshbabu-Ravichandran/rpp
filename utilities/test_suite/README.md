@@ -1,78 +1,47 @@
-# AMD ROCm Performance Primitives (RPP) Test Suite
+# RPP Test Suite
 
-This repository contains four test suites for the AMD ROCm Performance Primitives (RPP) library: for image/voxel/audio/miscellaneous augmentations processing. These test suites can be used to validate the functionality and performance of the AMD ROCm Performance Primitives (RPP) image/voxel/audio/miscellaneous functionalities.
+This repository contains four test suites for the RPP library: `image`/`voxel`/`audio`/`miscellaneous` augmentations processing. These test suites can be used to validate the functionality and performance of the RPP `image`/`voxel`/`audio`/`miscellaneous` augmentation functionalities.
 
-## Test suite prerequisites
+## Prerequisites
 
-* OpenCV `3.4.0`/`4.5.5`
+* OpenMP
+  ```shell
+  sudo apt install libomp-dev
+  ```
 
-  * Install OpenCV prerequisites:
+* OpenCV Version `3.X`/`4.X`
+  ```shell
+  sudo apt install libopencv-dev
+  ```
 
-    ```bash
-    sudo apt-get update
-    sudo -S apt-get -y --allow-unauthenticated install build-essential libgtk2.0-dev libavcodec-dev libavformat-dev libswscale-dev python-dev python-numpy
-    sudo -S apt-get -y --allow-unauthenticated install libtbb2 libtbb-dev libjpeg-dev libpng-dev libtiff-dev libdc1394-22-dev unzip wget
-    ```
-
-  * Download OpenCV `3.4.0` /`4.5.5`:
-
-    ```bash
-    wget https://github.com/opencv/opencv/archive/3.4.0.zip
-    unzip 3.4.0.zip
-    cd opencv-3.4.0/
-    ```
-
-    OR
-
-    ```bash
-    wget https://github.com/opencv/opencv/archive/4.5.5.zip
-    unzip 4.5.5.zip
-    cd opencv-4.5.5/
-    ```
-
-  * Install OpenCV:
-
-    ```bash
-    mkdir build
-    cd build
-    cmake -D WITH_GTK=ON -D WITH_JPEG=ON -D BUILD_JPEG=ON -D WITH_OPENCL=OFF -D WITH_OPENCLAMDFFT=OFF -D WITH_OPENCLAMDBLAS=OFF -D WITH_VA_INTEL=OFF -D WITH_OPENCL_SVM=OFF -D CMAKE_INSTALL_PREFIX=/usr/local ..
-    sudo -S make -j128 <Or other number of threads to use>
-    sudo -S make install
-    sudo -S ldconfig
-    ```
-
-* Install TurboJpeg:
-
-  ```bash
+* [Turbo JPEG](https://libjpeg-turbo.org/)
+  * Source: `https://github.com/libjpeg-turbo/libjpeg-turbo.git`
+  * Tag: [3.0.2](https://github.com/libjpeg-turbo/libjpeg-turbo/releases/tag/3.0.2)
+  ```shell
   sudo apt-get install nasm
   sudo apt-get install wget
-  git clone -b 2.0.6.1 https://github.com/rrawther/libjpeg-turbo.git
+  git clone -b 3.0.2 https://github.com/libjpeg-turbo/libjpeg-turbo.git
   cd libjpeg-turbo
   mkdir build
   cd build
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_BUILD_TYPE=RELEASE  \
         -DENABLE_STATIC=FALSE       \
-        -DCMAKE_INSTALL_DOCDIR=/usr/share/doc/libjpeg-turbo-2.0.3 \
         -DCMAKE_INSTALL_DEFAULT_LIBDIR=lib  \
+        -DWITH_JPEG8=TRUE           \
         ..
   make -j$nproc
   sudo make install
   ```
-* Libsndfile installation
-  ```
-  sudo apt-get update
+
+* Libsndfile
+  ```shell
   sudo apt-get install libsndfile1-dev
   ```
 
-* Imagemagick
-  ```
-  sudo apt-get install imagemagick
-  ```
-
-* Nifti-Imaging nifti_clib
-  ```
-  git clone git@github.com:NIFTI-Imaging/nifti_clib.git
+* Nifti-Imaging - [nifti_clib](https://github.com/NIFTI-Imaging/nifti_clib)
+  ```shell
+  git clone https://github.com/NIFTI-Imaging/nifti_clib.git
   cd nifti_clib
   mkdir build
   cd build
@@ -80,10 +49,24 @@ This repository contains four test suites for the AMD ROCm Performance Primitive
   sudo make -j$nproc install
   ```
 
-* Openpyxl
+* Python3 and Python3 PIP
+  ```shell
+  sudo apt install python3-dev python3-pip
   ```
+
+* Python: Openpyxl
+  ```shell
   pip install openpyxl
   ```
+
+* Python: Pandas
+  ```shell
+  pip install pandas
+  ```
+
+>[!NOTE]
+> * All package installs are shown with the `apt` package manager. Use the appropriate package manager for your operating system.
+> * Run `sudo ldconfig` to configure dynamic run-time bindings
 
 ## Rpp Image Test Suite
 The image test suite can be executed under 2 backend scenarios - (HOST/HIP):
@@ -201,7 +184,7 @@ python runVoxelTests.py --header_path <header_path> --data_path <data_path> --ca
 ``` python
 python runVoxelTests.py --case_start 0 --case_end 4 --test_type 0 --qa_mode 1 --batch_size 3
 ```
--   Unit test mode - Unit tests allowing users to pass a path to a folder containing nii fikes, to execute the desired functionality and variant once, report RPP execution wall time, save and view output images, gifs and nii files
+-   Unit test mode - Unit tests allowing users to pass a path to a folder containing nii files, to execute the desired functionality and variant once, report RPP execution wall time, save and view output images and nii files. Optionally gifs will also be saved for viewing convenience if '[Imagemagick](https://imagemagick.org/script/download.php)' is installed.
 ``` python
 python runVoxelTests.py --case_start 0 --case_end 4 --test_type 0 --qa_mode 0
 ```
@@ -228,7 +211,7 @@ python runVoxelTests.py --test_type 1 --profiling YES
 
 ### Summary of features (RPP Voxel Test Suite)
 The image test suite includes:
--   Unit tests that execute the desired functionality and variant once, report RPP execution wall time and save output images, gifs and nii files
+-   Unit tests that execute the desired functionality and variant once, report RPP execution wall time and save output images and nii files. Optionally gifs will also be saved for viewing convenience if '[Imagemagick](https://imagemagick.org/script/download.php)' is installed.
 -   Performance tests that execute the desired functionality and variant 100 times by default, and report max/min/avg RPP execution wall time, or optionally, AMD rocprof kernel profiler max/min/avg time for HIP backend variants.
 -   Unit and Performance tests are included for three layouts - PLN1 (1 channel planar NCHW), PLN3 (3 channel planar NCHW) and PKD3 (3 channel packed/interrleaved NHWC).
 -   Unit and Performance tests are included for one input/output bitdepth F32.

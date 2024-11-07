@@ -541,8 +541,8 @@ RppStatus rppt_crop_and_patch_gpu(RppPtr_t srcPtr1, RppPtr_t srcPtr2, RpptDescPt
 /*! \brief Flip voxel augmentation HOST
  * \details The flip voxel augmentation performs a mask-controlled horizontal/vertical/depth flip on a generic 4D tensor.
             <br> Support added for f32 -> f32 and u8 -> u8 dataypes.
- * \image html input150x150x4.gif Sample Input
- * \image html geometric_augmentations_flip_150x150x4.gif Sample Output
+ * \image html https://raw.githubusercontent.com/ROCm/rpp/develop/docs/data/doxygenInputs/input150x150x4.gif Sample Input
+ * \image html https://raw.githubusercontent.com/ROCm/rpp/develop/docs/data/doxygenOutputs/geometric_augmentations_flip_150x150x4.gif Sample Output
  * \param [in] srcPtr source tensor in HOST memory
  * \param [in] srcGenericDescPtr source tensor descriptor (Restrictions - numDims = 5, offsetInBytes >= 0, dataType = U8/F32, layout = NCDHW/NDHWC, c = 1/3)
  * \param [out] dstPtr destination tensor in HOST memory
@@ -564,8 +564,8 @@ RppStatus rppt_flip_voxel_host(RppPtr_t srcPtr, RpptGenericDescPtr srcGenericDes
 /*! \brief Flip voxel augmentation GPU
  * \details The flip voxel augmentation performs a mask-controlled horizontal/vertical/depth flip on a generic 4D tensor.
             <br> Support added for f32 -> f32 and u8 -> u8 dataypes.
- * \image html input150x150x4.gif Sample Input
- * \image html geometric_augmentations_flip_150x150x4.gif Sample Output
+ * \image html https://raw.githubusercontent.com/ROCm/rpp/develop/docs/data/doxygenInputs/input150x150x4.gif Sample Input
+ * \image html https://raw.githubusercontent.com/ROCm/rpp/develop/docs/data/doxygenOutputs/geometric_augmentations_flip_150x150x4.gif Sample Output
  * \param [in] srcPtr source tensor in HIP memory
  * \param [in] srcGenericDescPtr source tensor descriptor (Restrictions - numDims = 5, offsetInBytes >= 0, dataType = U8/F32, layout = NCDHW/NDHWC, c = 1/3)
  * \param [out] dstPtr destination tensor in HIP memory
@@ -594,8 +594,8 @@ RppStatus rppt_flip_voxel_gpu(RppPtr_t srcPtr, RpptGenericDescPtr srcGenericDesc
  * \param [in] srcDescPtr source tensor descriptor (Restrictions - numDims = 4, offsetInBytes >= 0, dataType = U8/F16/F32/I8, layout = NCHW/NHWC, c = 1/3)
  * \param [out] dstPtr destination tensor in HOST memory
  * \param [in] dstDescPtr destination tensor descriptor (Restrictions - numDims = 4, offsetInBytes >= 0, dataType = U8/F16/F32/I8, layout = NCHW/NHWC, c = same as that of srcDescPtr)
- * \param [in] rowRemapTable Rpp32f row numbers in HOST memory for every pixel in the input batch of images (Restrictions - rois in the rowRemapTable data for each image in batch must match roiTensorSrc)
- * \param [in] colRemapTable Rpp32f column numbers in HOST memory for every pixel in the input batch of images (Restrictions - rois in the colRemapTable data for each image in batch must match roiTensorSrc)
+ * \param [in] rowRemapTable Rpp32f row numbers in HOST memory for every pixel in the input batch of images (Restrictions - rois in the rowRemapTable data for each image in batch must match roiTensorPtrSrc)
+ * \param [in] colRemapTable Rpp32f column numbers in HOST memory for every pixel in the input batch of images (Restrictions - rois in the colRemapTable data for each image in batch must match roiTensorPtrSrc)
  * \param [in] tableDescPtr rowRemapTable and colRemapTable common tensor descriptor (Restrictions - numDims = 4, offsetInBytes >= 0, dataType = F32, layout = NHWC, c = 1)
  * \param [in] interpolationType Interpolation type used in <tt> \ref RpptInterpolationType </tt> (Restrictions - Supports only NEAREST_NEIGHBOR and BILINEAR)
  * \param [in] roiTensorPtrSrc ROI data in HOST memory, for each image in source tensor (2D tensor of size batchSize * 4, in either format - XYWH(xy.x, xy.y, roiWidth, roiHeight) or LTRB(lt.x, lt.y, rb.x, rb.y))
@@ -613,14 +613,14 @@ RppStatus rppt_remap_host(RppPtr_t srcPtr, RpptDescPtr srcDescPtr, RppPtr_t dstP
  * \details Performs a remap operation using user specified remap tables for a batch of RGB(3 channel) / greyscale(1 channel) images with an NHWC/NCHW tensor layout. For each image, the output(x,y) = input(mapx(x, y), mapy(x, y)) for every (x,y) in the destination image.<br>
  * - srcPtr depth ranges - Rpp8u (0 to 255), Rpp16f (0 to 1), Rpp32f (0 to 1), Rpp8s (-128 to 127).
  * - dstPtr depth ranges - Will be same depth as srcPtr.
- * \image html img150x150.jpg Sample Input
- * \image html geometric_augmentations_remap_img150x150.jpg Sample Output
+ * \image html img150x150.png Sample Input
+ * \image html geometric_augmentations_remap_img150x150.png Sample Output
  * \param [in] srcPtr source tensor in HIP memory
  * \param [in] srcDescPtr source tensor descriptor (Restrictions - numDims = 4, offsetInBytes >= 0, dataType = U8/F16/F32/I8, layout = NCHW/NHWC, c = 1/3)
  * \param [out] dstPtr destination tensor in HIP memory
  * \param [in] dstDescPtr destination tensor descriptor (Restrictions - numDims = 4, offsetInBytes >= 0, dataType = U8/F16/F32/I8, layout = NCHW/NHWC, c = same as that of srcDescPtr)
- * \param [in] rowRemapTable Rpp32f row numbers in HIP memory for every pixel in the input batch of images (Restrictions - rois in the rowRemapTable data for each image in batch must match roiTensorSrc)
- * \param [in] colRemapTable Rpp32f column numbers in HIP memory for every pixel in the input batch of images (Restrictions - rois in the colRemapTable data for each image in batch must match roiTensorSrc)
+ * \param [in] rowRemapTable Rpp32f row numbers in HIP memory for every pixel in the input batch of images (Restrictions - rois in the rowRemapTable data for each image in batch must match roiTensorPtrSrc)
+ * \param [in] colRemapTable Rpp32f column numbers in HIP memory for every pixel in the input batch of images (Restrictions - rois in the colRemapTable data for each image in batch must match roiTensorPtrSrc)
  * \param [in] tableDescPtr rowRemapTable and colRemapTable common tensor descriptor (Restrictions - numDims = 4, offsetInBytes >= 0, dataType = F32, layout = NHWC, c = 1)
  * \param [in] interpolationType Interpolation type used in <tt> \ref RpptInterpolationType </tt> (Restrictions - Supports only NEAREST_NEIGHBOR and BILINEAR)
  * \param [in] roiTensorPtrSrc ROI data in HIP memory, for each image in source tensor (2D tensor of size batchSize * 4, in either format - XYWH(xy.x, xy.y, roiWidth, roiHeight) or LTRB(lt.x, lt.y, rb.x, rb.y))

@@ -129,6 +129,7 @@ struct RPPTensorFunctionMetaData
 #define ONE_OVER_256                    0.00390625f
 #define SIX_OVER_360                    0.01666667f
 #define PI                              3.14159265
+#define TWO_PI                          6.2831853
 #define RGB_TO_GREY_WEIGHT_RED          0.299f
 #define RGB_TO_GREY_WEIGHT_GREEN        0.587f
 #define RGB_TO_GREY_WEIGHT_BLUE         0.114f
@@ -155,6 +156,11 @@ struct RPPTensorFunctionMetaData
   (byte & 0x04 ? '1' : '0'), \
   (byte & 0x02 ? '1' : '0'), \
   (byte & 0x01 ? '1' : '0')
+
+// float4 floor
+
+#define FLOOR4(src, dst) \
+dst = make_int4(floorf(src.x), floorf(src.y), floorf(src.z), floorf(src.w));
 
 /******************** HOST FUNCTIONS ********************/
 

@@ -30,8 +30,8 @@ int main(int argc, char **argv)
     const int MIN_ARG_COUNT = 7;
     if (argc < MIN_ARG_COUNT)
     {
-        printf("\nImproper Usage! Needs all arguments!\n");
-        printf("\nUsage: ./Tensor_host_audio <src folder> <case number = 0:7> <test type 0/1> <numRuns> <batchSize> <dst folder>\n");
+        cout << "\nImproper Usage! Needs all arguments!\n";
+        cout << "\nUsage: ./Tensor_host_audio <src folder> <case number = 0:7> <test type 0/1> <numRuns> <batchSize> <dst folder>\n";
         return -1;
     }
 
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     if (funcName.empty())
     {
         if (testType == 0)
-            printf("\ncase %d is not supported\n", testCase);
+            cout << "\ncase " << testCase << " is not supported\n";
 
         return -1;
     }
@@ -106,7 +106,10 @@ int main(int argc, char **argv)
     set_audio_descriptor_dims_and_strides(srcDescPtr, batchSize, maxSrcHeight, maxSrcWidth, maxSrcChannels, offsetInBytes);
     int maxDstChannels = maxSrcChannels;
     if(testCase == 3)
+    {
+        srcDescPtr->numDims = 3;
         maxDstChannels = 1;
+    }
     set_audio_descriptor_dims_and_strides(dstDescPtr, batchSize, maxDstHeight, maxDstWidth, maxDstChannels, offsetInBytes);
 
     // create generic descriptor in case of slice
@@ -123,8 +126,26 @@ int main(int argc, char **argv)
     }
 
     // set buffer sizes for src/dst
-    iBufferSize = (Rpp64u)srcDescPtr->h * (Rpp64u)srcDescPtr->w * (Rpp64u)srcDescPtr->c * (Rpp64u)srcDescPtr->n;
-    oBufferSize = (Rpp64u)dstDescPtr->h * (Rpp64u)dstDescPtr->w * (Rpp64u)dstDescPtr->c * (Rpp64u)dstDescPtr->n;
+    if(testCase == 7)
+    {
+        iBufferSize = (Rpp64u)MEL_FILTER_BANK_MAX_HEIGHT * (Rpp64u)srcDescPtr->w * (Rpp64u)srcDescPtr->c * (Rpp64u)srcDescPtr->n;
+        oBufferSize = (Rpp64u)MEL_FILTER_BANK_MAX_HEIGHT * (Rpp64u)dstDescPtr->w * (Rpp64u)dstDescPtr->c * (Rpp64u)dstDescPtr->n;
+    }
+    else
+    {
+        iBufferSize = (Rpp64u)srcDescPtr->h * (Rpp64u)srcDescPtr->w * (Rpp64u)srcDescPtr->c * (Rpp64u)srcDescPtr->n;
+        oBufferSize = (Rpp64u)dstDescPtr->h * (Rpp64u)dstDescPtr->w * (Rpp64u)dstDescPtr->c * (Rpp64u)dstDescPtr->n;
+    }
+
+    // compute maximum possible buffer size of resample
+    Rpp64u resampleMaxBufferSize = dstDescPtr->n * dstDescPtr->strides.nStride * 1.15;
+    if (testCase == 6)
+        oBufferSize = resampleMaxBufferSize;
+
+    // compute maximum possible buffer size of spectrogram
+    Rpp64u spectrogramMaxBufferSize = 257 * 3754 * dstDescPtr->n;
+    if (testCase == 4)
+        oBufferSize = spectrogramMaxBufferSize;
 
     // allocate host buffers for input & output
     Rpp32f *inputf32 = (Rpp32f *)calloc(iBufferSize, sizeof(Rpp32f));
@@ -141,14 +162,19 @@ int main(int argc, char **argv)
     // buffers used for non silent region detection
     Rpp32s detectedIndex[batchSize], detectionLength[batchSize];
 
-    // run case-wise RPP API and measure time
-    rppHandle_t handle;
-    rppCreateWithBatchSize(&handle, srcDescPtr->n, 3);
+    // RpptResamplingWindow instance used for resample augmentation
+    RpptResamplingWindow window;
 
-    int noOfIterations = (int)audioNames.size() / batchSize;
+    // Set the number of threads to be used by OpenMP pragma for RPP batch processing on host.
+    // If numThreads value passed is 0, number of OpenMP threads used by RPP will be set to batch size
+    Rpp32u numThreads = 0;
+    rppHandle_t handle;
+    rppCreateWithBatchSize(&handle, batchSize, numThreads);
+
+    int noOfIterations = static_cast<int>(audioNames.size()) / batchSize;
     double maxWallTime = 0, minWallTime = 500, avgWallTime = 0;
     string testCaseName;
-    printf("\nRunning %s %d times (each time with a batch size of %d audio files) and computing mean statistics...", func.c_str(), numRuns, batchSize);
+    cout << "\nRunning " << func << " " << numRuns << " times (each time with a batch size of " << batchSize << " audio files) and computing mean statistics...";
     for (int iterCount = 0; iterCount < noOfIterations; iterCount++)
     {
         // read and decode audio and fill the audio dim values
@@ -244,33 +270,16 @@ int main(int argc, char **argv)
 
                     maxDstWidth = 0;
                     maxDstHeight = 0;
-                    if(dstDescPtr->layout == RpptLayout::NFT)
-                    {
-                        for(int i = 0; i < noOfAudioFiles; i++)
-                        {
-                            dstDims[i].height = nfft / 2 + 1;
-                            dstDims[i].width = ((srcLengthTensor[i] - windowOffset) / windowStep) + 1;
-                            maxDstHeight = std::max(maxDstHeight, (int)dstDims[i].height);
-                            maxDstWidth = std::max(maxDstWidth, (int)dstDims[i].width);
-                        }
-                    }
-                    else
-                    {
-                        for(int i = 0; i < noOfAudioFiles; i++)
-                        {
-                            dstDims[i].height = ((srcLengthTensor[i] - windowOffset) / windowStep) + 1;
-                            dstDims[i].width = nfft / 2 + 1;
-                            maxDstHeight = std::max(maxDstHeight, (int)dstDims[i].height);
-                            maxDstWidth = std::max(maxDstWidth, (int)dstDims[i].width);
-                        }
-                    }
+                    init_spectrogram(srcDescPtr, dstDescPtr, dstDims, srcLengthTensor, windowLength,
+                                     windowStep, windowOffset, nfft, maxDstHeight, maxDstWidth);
 
-                    set_audio_descriptor_dims_and_strides_nostriding(dstDescPtr, batchSize, maxDstHeight, maxDstWidth, maxDstChannels, offsetInBytes);
-                    dstDescPtr->numDims = 3;
-
-                    // Set buffer sizes for src/dst
-                    unsigned long long spectrogramBufferSize = (unsigned long long)dstDescPtr->h * (unsigned long long)dstDescPtr->w * (unsigned long long)dstDescPtr->c * (unsigned long long)dstDescPtr->n;
-                    outputf32 = (Rpp32f *)realloc(outputf32, spectrogramBufferSize * sizeof(Rpp32f));
+                    // check if the output buffer size is greater than predefined spectrogramMaxBufferSize
+                    if (dstDescPtr->n * dstDescPtr->strides.nStride > spectrogramMaxBufferSize)
+                    {
+                        std::cout << "\nError! Requested spectrogram output size is greater than predefined max size for spectrogram in test suite."
+                                     "\nPlease modify spectrogramMaxBufferSize value in test suite for running spectrogram kernel" << std::endl;
+                        exit(0);
+                    }
 
                     startWallTime = omp_get_wtime();
                     rppt_spectrogram_host(inputf32, srcDescPtr, outputf32, dstDescPtr, srcLengthTensor, centerWindows, reflectPadding, windowFn, nfft, power, windowLength, windowStep, handle);
@@ -325,21 +334,17 @@ int main(int argc, char **argv)
                     Rpp32f quality = 50.0f;
                     Rpp32s lobes = std::round(0.007 * quality * quality - 0.09 * quality + 3);
                     Rpp32s lookupSize = lobes * 64 + 1;
-                    RpptResamplingWindow window;
                     windowed_sinc(window, lookupSize, lobes);
 
                     dstDescPtr->w = maxDstWidth;
                     dstDescPtr->strides.nStride = dstDescPtr->c * dstDescPtr->w * dstDescPtr->h;
 
-                    // Set buffer sizes for dst
-                    Rpp64u resampleBufferSize = (Rpp64u)dstDescPtr->h * (Rpp64u)dstDescPtr->w * (Rpp64u)dstDescPtr->c * (Rpp64u)dstDescPtr->n;
-
-                    // Reinitialize host buffers for output
-                    outputf32 = (Rpp32f *)realloc(outputf32, sizeof(Rpp32f) * resampleBufferSize);
-                    if(!outputf32)
+                    // check if the required output buffer size is greater than predefined resampleMaxBufferSize
+                    if (dstDescPtr->n * dstDescPtr->strides.nStride > resampleMaxBufferSize)
                     {
-                        std::cout << "Unable to reallocate memory for output" << std::endl;
-                        break;
+                        std::cout << "\nError! Requested resample output size is greater than predefined max size for resample in test suite."
+                                     "\nPlease modify resampleMaxBufferSize value in test suite as per your requirements for running resample kernel" << std::endl;
+                        exit(0);
                     }
 
                     startWallTime = omp_get_wtime();
@@ -357,42 +362,10 @@ int main(int argc, char **argv)
                     RpptMelScaleFormula melFormula = RpptMelScaleFormula::SLANEY;
                     Rpp32s numFilter = 80;
                     bool normalize = true;
-                    Rpp32s srcDimsTensor[] = {257, 225, 257, 211, 257, 214}; // (height, width) for each tensor in a batch for given QA inputs.
-                    // Accepts outputs from FT layout of Spectrogram for QA
-                    srcDescPtr->layout = dstDescPtr->layout = RpptLayout::NFT;
+                    // (height, width) for each tensor in a batch for given QA inputs.
+                    Rpp32s srcDimsTensor[] = {257, 225, 257, 211, 257, 214};
 
-                    maxDstHeight = 0;
-                    maxDstWidth = 0;
-                    maxSrcHeight = 0;
-                    maxSrcWidth = 0;
-                    for(int i = 0, j = 0; i < batchSize; i++, j += 2)
-                    {
-                        maxSrcHeight = std::max(maxSrcHeight, (int)srcDimsTensor[j]);
-                        maxSrcWidth = std::max(maxSrcWidth, (int)srcDimsTensor[j + 1]);
-                        dstDims[i].height = numFilter;
-                        dstDims[i].width = srcDimsTensor[j + 1];
-                        maxDstHeight = std::max(maxDstHeight, (int)dstDims[i].height);
-                        maxDstWidth = std::max(maxDstWidth, (int)dstDims[i].width);
-                    }
-
-                    srcDescPtr->h = maxSrcHeight;
-                    srcDescPtr->w = maxSrcWidth;
-                    dstDescPtr->h = maxDstHeight;
-                    dstDescPtr->w = maxDstWidth;
-
-                    set_audio_descriptor_dims_and_strides_nostriding(srcDescPtr, batchSize, maxSrcHeight, maxSrcWidth, maxSrcChannels, offsetInBytes);
-                    set_audio_descriptor_dims_and_strides_nostriding(dstDescPtr, batchSize, maxDstHeight, maxDstWidth, maxDstChannels, offsetInBytes);
-                    srcDescPtr->numDims = 3;
-                    dstDescPtr->numDims = 3;
-
-                    // Set buffer sizes for src/dst
-                    unsigned long long spectrogramBufferSize = (unsigned long long)srcDescPtr->h * (unsigned long long)srcDescPtr->w * (unsigned long long)srcDescPtr->c * (unsigned long long)srcDescPtr->n;
-                    unsigned long long melFilterBufferSize = (unsigned long long)dstDescPtr->h * (unsigned long long)dstDescPtr->w * (unsigned long long)dstDescPtr->c * (unsigned long long)dstDescPtr->n;
-                    inputf32 = (Rpp32f *)realloc(inputf32, spectrogramBufferSize * sizeof(Rpp32f));
-                    outputf32 = (Rpp32f *)realloc(outputf32, melFilterBufferSize * sizeof(Rpp32f));
-
-                    // Read source data
-                    read_from_bin_file(inputf32, srcDescPtr, srcDimsTensor, "spectrogram", scriptPath);
+                    init_mel_filter_bank(&inputf32, &outputf32, srcDescPtr, dstDescPtr, dstDims, offsetInBytes, numFilter, batchSize, srcDimsTensor, scriptPath, testType);
 
                     startWallTime = omp_get_wtime();
                     rppt_mel_filter_bank_host(inputf32, srcDescPtr, outputf32, dstDescPtr, srcDimsTensor, maxFreq, minFreq, melFormula, numFilter, sampleRate, normalize, handle);
@@ -409,7 +382,7 @@ int main(int argc, char **argv)
             endWallTime = omp_get_wtime();
             if (missingFuncFlag == 1)
             {
-                printf("\nThe functionality %s doesn't yet exist in RPP\n", func.c_str());
+                cout << "\nThe functionality " << func << " doesn't yet exist in RPP\n";
                 return -1;
             }
 
@@ -425,7 +398,7 @@ int main(int argc, char **argv)
             if (testCase == 0)
                 verify_non_silent_region_detection(detectedIndex, detectionLength, testCaseName, batchSize, audioNames, dst);
             else
-                verify_output(outputf32, dstDescPtr, dstDims, testCaseName, dst, scriptPath);
+                verify_output(outputf32, dstDescPtr, dstDims, testCaseName, dst, scriptPath, "HOST");
 
             /* Dump the outputs to csv files for debugging
             Runs only if
@@ -464,5 +437,6 @@ int main(int argc, char **argv)
     free(dstDims);
     free(inputf32);
     free(outputf32);
+
     return 0;
 }
