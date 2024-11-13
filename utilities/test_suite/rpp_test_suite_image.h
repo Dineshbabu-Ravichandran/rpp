@@ -119,7 +119,8 @@ std::map<int, string> augmentationMap =
     {89, "tensor_max"},
     {90, "tensor_mean"},
     {91, "tensor_stddev"},
-    {92, "slice"}
+    {92, "slice"},
+    {93, "transpose"}
 };
 
 // Golden outputs for Tensor min Kernel
@@ -493,6 +494,7 @@ inline void set_generic_descriptor_slice(RpptDescPtr srcDescPtr, RpptGenericDesc
         descriptorPtr3D->strides[0] = descriptorPtr3D->dims[1] * descriptorPtr3D->dims[2] * descriptorPtr3D->dims[3];
         descriptorPtr3D->strides[1] = descriptorPtr3D->dims[2] * descriptorPtr3D->dims[3];
         descriptorPtr3D->strides[2] = descriptorPtr3D->dims[3];
+        descriptorPtr3D->strides[3] = 1;
     }
     else
     {
@@ -502,6 +504,7 @@ inline void set_generic_descriptor_slice(RpptDescPtr srcDescPtr, RpptGenericDesc
         descriptorPtr3D->dims[2] = srcDescPtr->w;
         descriptorPtr3D->strides[0] = descriptorPtr3D->dims[1] * descriptorPtr3D->dims[2];
         descriptorPtr3D->strides[1] = descriptorPtr3D->dims[2];
+        descriptorPtr3D->strides[2] = 1;
     }
 }
 
@@ -516,7 +519,7 @@ inline void set_descriptor_dims_and_strides(RpptDescPtr descPtr, int noOfImages,
     descPtr->c = numChannels;
 
     // Optionally set w stride as a multiple of 8 for src/dst
-    descPtr->w = (descPtr->w / 8) * 8 + 8 + additionalStride;
+    // descPtr->w = (descPtr->w / 8) * 8 + 8 + additionalStride;
     // set strides
     if (descPtr->layout == RpptLayout::NHWC)
     {
@@ -533,6 +536,22 @@ inline void set_descriptor_dims_and_strides(RpptDescPtr descPtr, int noOfImages,
         descPtr->strides.wStride = 1;
     }
 }
+
+// Compute strides given Generic Tensor
+void compute_strides(RpptGenericDescPtr descriptorPtr)
+{
+    if (descriptorPtr->numDims > 0)
+    {
+        uint64_t v = 1;
+        for (int i = descriptorPtr->numDims - 1; i > 0; i--)
+        {
+            descriptorPtr->strides[i] = v;
+            v *= descriptorPtr->dims[i];
+        }
+        descriptorPtr->strides[0] = v;
+    }
+}
+
 
 inline void set_roi_values(RpptROI *roi, RpptROI *roiTensorPtrSrc, RpptRoiType roiType, int batchSize)
 {
@@ -974,7 +993,7 @@ void compare_outputs_pln3(Rpp8u* output, Rpp8u* refOutput, RpptDescPtr dstDescPt
 }
 
 template <typename T>
-inline void compare_output(T* output, string funcName, RpptDescPtr srcDescPtr, RpptDescPtr dstDescPtr, RpptImagePatch *dstImgSizes, int noOfImages, string interpolationTypeName, string noiseTypeName, int additionalParam, int testCase, string dst, string scriptPath)
+inline void compare_output(T* output, string funcName, RpptDescPtr srcDescPtr, RpptDescPtr dstDescPtr, RpptImagePatch *dstImgSizes, int noOfImages, string interpolationTypeName, string noiseTypeName, string premOrderName, int additionalParam, int testCase, string dst, string scriptPath)
 {
     string func = funcName;
     string refFile = "";
@@ -1349,6 +1368,112 @@ void init_slice(RpptGenericDescPtr descriptorPtr3D, RpptROIPtr roiPtrSrc, Rpp32u
             roiTensor[idx2 + 3] = roiPtrSrc[i].xywhROI.roiWidth;
             shapeTensor[idx1] = roiTensor[idx2 + 2] / 2;
             shapeTensor[idx1 + 1] = roiTensor[idx2 + 3] / 2;
+        }
+    }
+}
+
+// fill the permutation values used for transpose
+void fill_perm_values(RpptGenericDescPtr srcDescriptorPtr3D, Rpp32u nDim, Rpp32u *permTensor, bool qaMode, int permOrder)
+{
+    if(qaMode)
+    {
+        switch(nDim)
+        {
+            case 2:
+            {
+                // HW->WH
+                permTensor[0] = 1;
+                permTensor[1] = 0;
+                break;
+            }
+            case 3:
+            {
+                // HWC->WHC
+                // CHW->HCW 
+                if (permOrder == 1)
+                {
+                    if(srcDescriptorPtr3D->layout == RpptLayout::NHWC)
+                    {
+                        permTensor[0] = 1;
+                        permTensor[1] = 0;
+                        permTensor[2] = 2;
+                    }
+                    else
+                    {
+                        permTensor[0] = 0;
+                        permTensor[1] = 2;
+                        permTensor[2] = 1;
+                    }
+                }
+                // HWC->HCW
+                else if (permOrder == 2)
+                {
+                    permTensor[0] = 0;
+                    permTensor[1] = 2;
+                    permTensor[2] = 1;
+
+                }
+                break;
+            }
+            default:
+            {
+                cout << "Error! QA mode is supported only for 2D / 3D inputs" << endl;
+                exit(0);
+            }
+        }
+    }
+    else
+    {
+        for(int i = 0; i < nDim; i++)
+            permTensor[i] = nDim - 1 - i;
+    }
+}
+
+// initialize the roi values required for normalize
+void init_transpose(RpptGenericDescPtr descriptorPtr3D, RpptROIPtr roiPtrSrc, Rpp32u *roiTensor)
+{
+    if(descriptorPtr3D->numDims == 4)
+    {
+        if (descriptorPtr3D->layout == RpptLayout::NCHW)
+        {
+            for(int i = 0; i < descriptorPtr3D->dims[0]; i++)
+            {
+                int idx1 = i * 3;
+                int idx2 = i * 6;
+                roiTensor[idx2] = 0;
+                roiTensor[idx2 + 1] = roiPtrSrc[i].xywhROI.xy.y;
+                roiTensor[idx2 + 2] = roiPtrSrc[i].xywhROI.xy.x;
+                roiTensor[idx2 + 3] = descriptorPtr3D->dims[1];
+                roiTensor[idx2 + 4] = roiPtrSrc[i].xywhROI.roiHeight;
+                roiTensor[idx2 + 5] = roiPtrSrc[i].xywhROI.roiWidth;
+            }
+        }
+        else if(descriptorPtr3D->layout == RpptLayout::NHWC)
+        {
+            for(int i = 0; i < descriptorPtr3D->dims[0]; i++)
+            {
+                int idx1 = i * 3;
+                int idx2 = i * 6;
+                roiTensor[idx2] = roiPtrSrc[i].xywhROI.xy.y;
+                roiTensor[idx2 + 1] = roiPtrSrc[i].xywhROI.xy.x;
+                roiTensor[idx2 + 2] = 0;
+                roiTensor[idx2 + 3] = roiPtrSrc[i].xywhROI.roiHeight;
+                roiTensor[idx2 + 4] = roiPtrSrc[i].xywhROI.roiWidth;
+                roiTensor[idx2 + 5] = descriptorPtr3D->dims[3];
+            }
+        }
+        printf("Roi Tensor : %d %d %d %d %d %d",roiTensor[0],roiTensor[1],roiTensor[2],roiTensor[3],roiTensor[4],roiTensor[5]);
+    }
+    if(descriptorPtr3D->numDims == 3)
+    {
+        for(int i = 0; i < descriptorPtr3D->dims[0]; i++)
+        {
+            int idx1 = i * 2;
+            int idx2 = i * 4;
+            roiTensor[idx2] = roiPtrSrc[i].xywhROI.xy.y;
+            roiTensor[idx2 + 1] = roiPtrSrc[i].xywhROI.xy.x;
+            roiTensor[idx2 + 2] = roiPtrSrc[i].xywhROI.roiHeight;
+            roiTensor[idx2 + 3] = roiPtrSrc[i].xywhROI.roiWidth;
         }
     }
 }

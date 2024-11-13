@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     int decoderType = atoi(argv[13]);
     int batchSize = atoi(argv[14]);
 
-    bool additionalParamCase = (testCase == 8 || testCase == 21 || testCase == 23 || testCase == 24 || testCase == 49 || testCase == 79);
+    bool additionalParamCase = (testCase == 8 || testCase == 21 || testCase == 23 || testCase == 24 || testCase == 49 || testCase == 79 || testCase == 93);
     bool kernelSizeCase = (testCase == 49);
     bool dualInputCase = (testCase == 2 || testCase == 30 || testCase == 33 || testCase == 61 || testCase == 63 || testCase == 65 || testCase == 68);
     bool randomOutputCase = (testCase == 6 || testCase == 8 || testCase == 84);
@@ -199,6 +199,7 @@ int main(int argc, char **argv)
     RpptInterpolationType interpolationType = RpptInterpolationType::BILINEAR;
     std::string interpolationTypeName = "";
     std::string noiseTypeName = "";
+    std::string transposeOrderName = "";
 
     if (interpolationTypeCase)
     {
@@ -219,7 +220,12 @@ int main(int argc, char **argv)
         func += "_kernelSize";
         func += additionalParam_char;
     }
-
+    if(testCase == 93)
+    {
+        transposeOrderName = std::to_string(additionalParam);
+        func +="_permOrder";
+        func += std::to_string(additionalParam);        
+    }
     if(!qaFlag)
     {
         dst += "/";
@@ -351,13 +357,21 @@ int main(int argc, char **argv)
     }
 
     // create generic descriptor and params in case of slice
-    RpptGenericDesc descriptor3D;
+    RpptGenericDesc descriptor3D, srcDescriptor3D, dstDescriptor3D;
     RpptGenericDescPtr descriptorPtr3D = &descriptor3D;
+    RpptGenericDescPtr srcDescriptorPtr3D = &srcDescriptor3D;
+    RpptGenericDescPtr dstDescriptorPtr3D = &dstDescriptor3D;
     Rpp32s *anchorTensor = NULL, *shapeTensor = NULL;
     Rpp32u *roiTensor = NULL;
     if(testCase == 92)
         set_generic_descriptor_slice(srcDescPtr, descriptorPtr3D, batchSize);
 
+    if(testCase == 93)
+    {
+        set_generic_descriptor_slice(srcDescPtr, srcDescriptorPtr3D, batchSize);
+        set_generic_descriptor_slice(dstDescPtr, dstDescriptorPtr3D, batchSize);
+    }
+    Rpp32u *transposeRoiTensor = static_cast<Rpp32u *>(calloc(3 * 2 * batchSize, sizeof(Rpp32u)));
     // create cropRoi and patchRoi in case of crop_and_patch
     RpptROI *cropRoi, *patchRoi;
     if(testCase == 33)
@@ -1488,6 +1502,31 @@ int main(int argc, char **argv)
 
                     break;
                 }
+                case 93:
+                {
+                    testCaseName  = "transpose";
+
+                    Rpp32u nDim = srcDescriptorPtr3D->numDims - 1;
+                    Rpp32u permTensor[nDim];
+                    init_transpose(srcDescriptorPtr3D, roiTensorPtrSrc, transposeRoiTensor);
+                    fill_perm_values(nDim, permTensor, 1, additionalParam);
+
+                    printf("\n %d %d %d ",permTensor[0],permTensor[1],permTensor[2]);
+                    printf("\n DIms");
+                    for(int i = 1; i <= nDim; i++)
+                    {
+                        dstDescriptorPtr3D->dims[i] = srcDescriptorPtr3D->dims[1 + permTensor[i - 1]];
+                        printf(" %d ",dstDescriptorPtr3D->dims[i]);
+                    }
+
+                    compute_strides(dstDescriptorPtr3D);
+                    printf("\nDst Strides %d %d %d %d ",srcDescriptorPtr3D->strides[0],srcDescriptorPtr3D->strides[1],srcDescriptorPtr3D->strides[2],srcDescriptorPtr3D->strides[3]);
+                    printf("\nDst Strides %d %d %d %d ",dstDescriptorPtr3D->strides[0],dstDescriptorPtr3D->strides[1],dstDescriptorPtr3D->strides[2],dstDescriptorPtr3D->strides[3]);
+                    startWallTime = omp_get_wtime();
+                    rppt_transpose_host(input, srcDescriptorPtr3D, output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
+
+                    break;
+                }
                 default:
                 {
                     missingFuncFlag = 1;
@@ -1582,7 +1621,7 @@ int main(int argc, char **argv)
                     std::ofstream refFile;
                     refFile.open(func + ".csv");
                     for (int i = 0; i < oBufferSize; i++)
-                        refFile << static_cast<int>(*(outputu8 + i)) << ",";
+                        refFile << static_cast<int>(*(inputu8 + i)) << ",";
                     refFile.close();
                 }
 
@@ -1628,7 +1667,7 @@ int main(int argc, char **argv)
                 3.source and destination layout are the same
                 4.augmentation case does not generate random output*/
                 if(qaFlag && inputBitDepth == 0 && ((srcDescPtr->layout == dstDescPtr->layout) || pln1OutTypeCase) && !(randomOutputCase) && !(nonQACase))
-                    compare_output<Rpp8u>(outputu8, testCaseName, srcDescPtr, dstDescPtr, dstImgSizes, batchSize, interpolationTypeName, noiseTypeName, additionalParam, testCase, dst, scriptPath);
+                    compare_output<Rpp8u>(outputu8, testCaseName, srcDescPtr, dstDescPtr, dstImgSizes, batchSize, interpolationTypeName, noiseTypeName, transposeOrderName, additionalParam, testCase, dst, scriptPath);
 
                 // Calculate exact dstROI in XYWH format for OpenCV dump
                 if (roiTypeSrc == RpptRoiType::LTRB)
