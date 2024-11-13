@@ -72,16 +72,16 @@ def run_performance_test_cmd(loggingFolder, logFileLayout, headerPath, dataPath,
             output = process.stdout.readline()
             if not output and process.poll() is not None:
                 break
-            output = output.decode('utf-8')
-            if output:
-                print(output, end='')
-                logFile.write(output)
+            output = output.decode().strip()  # Decode bytes to string and strip extra whitespace
+            print(output)
             if "Running" in output or "max,min,avg wall times" in output:
                 cleanedOutput = ''.join(char for char in output if 32 <= ord(char) <= 126)  # Remove control characters
                 cleanedOutput = cleanedOutput.strip()  # Remove leading/trailing whitespace
                 logFile.write(cleanedOutput + '\n')
                 if "max,min,avg wall times" in output:
                     logFile.write("\n")
+            else :
+                logFile.write(output  + '\n')
         print("\n------------------------------------------------------------------------------------------")
 
 def run_test(loggingFolder, logFileLayout, headerPath, dataPath, dstPathTemp, layout, case, numRuns, testType, qaMode, batchSize):

@@ -1509,21 +1509,18 @@ int main(int argc, char **argv)
                     Rpp32u nDim = srcDescriptorPtr3D->numDims - 1;
                     Rpp32u permTensor[nDim];
                     init_transpose(srcDescriptorPtr3D, roiTensorPtrSrc, transposeRoiTensor);
-                    fill_perm_values(nDim, permTensor, 1, additionalParam);
+                    fill_perm_values(srcDescriptorPtr3D, nDim, permTensor, 1, additionalParam);
 
-                    printf("\n %d %d %d ",permTensor[0],permTensor[1],permTensor[2]);
-                    printf("\n DIms");
                     for(int i = 1; i <= nDim; i++)
-                    {
                         dstDescriptorPtr3D->dims[i] = srcDescriptorPtr3D->dims[1 + permTensor[i - 1]];
-                        printf(" %d ",dstDescriptorPtr3D->dims[i]);
-                    }
 
                     compute_strides(dstDescriptorPtr3D);
-                    printf("\nDst Strides %d %d %d %d ",srcDescriptorPtr3D->strides[0],srcDescriptorPtr3D->strides[1],srcDescriptorPtr3D->strides[2],srcDescriptorPtr3D->strides[3]);
-                    printf("\nDst Strides %d %d %d %d ",dstDescriptorPtr3D->strides[0],dstDescriptorPtr3D->strides[1],dstDescriptorPtr3D->strides[2],dstDescriptorPtr3D->strides[3]);
                     startWallTime = omp_get_wtime();
-                    rppt_transpose_host(input, srcDescriptorPtr3D, output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
+                    startCpuTime = clock();
+                    if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
+                        rppt_transpose_host(input, srcDescriptorPtr3D, output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
+                    else
+                        missingFuncFlag = 1;
 
                     break;
                 }
