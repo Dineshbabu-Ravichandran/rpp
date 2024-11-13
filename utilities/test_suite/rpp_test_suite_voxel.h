@@ -70,6 +70,23 @@ std::map<int, string> augmentationMap =
     {6, "gaussian_noise_voxel"}
 };
 
+template <typename T>
+inline T validate_pixel_range(T pixel)
+{
+    pixel = (pixel < static_cast<Rpp32f>(0)) ? (static_cast<Rpp32f>(0)) : ((pixel < static_cast<Rpp32f>(255)) ? pixel : (static_cast<Rpp32f>(255)));
+    return pixel;
+}
+
+inline size_t get_size_of_data_type(RpptDataType dataType)
+{
+    if(dataType == RpptDataType::U8)
+        return sizeof(Rpp8u);
+    else if(dataType == RpptDataType::F32)
+        return sizeof(Rpp32f);
+    else
+        return 0;
+}
+
 void replicate_last_file_to_fill_batch(const string& lastFilePath, vector<string>& filePathVector, vector<string>& fileNamesVector, const string& lastFileName, int noOfFiles, int batchCount)
 {
     int remainingFiles = batchCount - (noOfFiles % batchCount);
@@ -500,6 +517,42 @@ inline void convert_input_niftitype_to_Rpp32f_generic(T **niftyInput, nifti_1_he
                 outputTemp += channelStride;
             }
         }
+    }
+}
+
+// Convert F32 input to corresponding bit depth specified by user
+inline void convert_input_bitdepth_from_F32(void *input, Rpp32f *inputf32, Rpp32u inputBitDepth, Rpp64u ioBufferSize, Rpp64u inputBufferSize, RpptGenericDescPtr srcDescPtr)
+{
+    if (inputBitDepth == 0) // U8 bit depth
+    {
+        Rpp32f *inputTemp = inputf32 + srcDescPtr->offsetInBytes;
+        Rpp8u *inputu8Temp = reinterpret_cast<Rpp8u *>(static_cast<Rpp8u *>(input) + srcDescPtr->offsetInBytes);
+        for (int i = 0; i < ioBufferSize; i++)
+            *inputu8Temp++ = static_cast<Rpp8u>(validate_pixel_range(*inputTemp++));
+    }
+    else if (inputBitDepth == 2) // F32 bit depth (no conversion needed)
+    {
+        memcpy(input, inputf32, inputBufferSize);
+    }
+}
+
+// Reconvert other bit depths to F32 for output display purposes
+inline void convert_output_bitdepth_to_f32(void *output, Rpp32f *outputf32, Rpp32u inputBitDepth, Rpp64u oBufferSize, Rpp64u outputBufferSize, RpptGenericDescPtr dstDescPtr)
+{
+    if (inputBitDepth == 0)
+    {
+        Rpp32f *outputTemp = outputf32 + dstDescPtr->offsetInBytes;
+        Rpp8u *outputu8Temp = reinterpret_cast<Rpp8u *>(static_cast<Rpp8u *>(output) + dstDescPtr->offsetInBytes);
+        for (int i = 0; i < oBufferSize; i++)
+        {
+            *outputTemp = static_cast<Rpp32f>(static_cast<float>(*outputu8Temp));
+            outputu8Temp++;
+            outputTemp++;
+        }
+    }
+    else if (inputBitDepth == 2)
+    {
+        memcpy(outputf32, output, outputBufferSize);
     }
 }
 
