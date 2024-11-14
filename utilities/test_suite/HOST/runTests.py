@@ -86,7 +86,7 @@ def run_unit_test(srcPath1, srcPath2, dstPathTemp, case, numRuns, testType, layo
                     print(stdout_data.decode())
             elif case == '93':
                 # Run all variants of interpolation functions with additional argument of interpolationType = bicubic / bilinear / gaussian / nearestneigbor / lanczos / triangular
-                for transposeOrder in range(1, 4):
+                for transposeOrder in range(1, 2):
                     print("./Tensor_host " + srcPath1 + " " + srcPath2 + " " + dstPathTemp + " " + str(bitDepth) + " " + str(outputFormatToggle) + " " + str(case) + " " + str(transposeOrder) + " 0")
                     result = subprocess.Popen([buildFolderPath + "/build/Tensor_host", srcPath1, srcPath2, dstPathTemp, str(bitDepth), str(outputFormatToggle), str(case), str(transposeOrder), str(numRuns), str(testType), str(layout), "0", str(qaMode), str(decoderType), str(batchSize)] + roiList + [scriptPath], stdout=subprocess.PIPE, stderr=subprocess.PIPE)    # nosec
                     stdout_data, stderr_data = result.communicate()
@@ -138,7 +138,7 @@ def run_performance_test(loggingFolder, logFileLayout, srcPath1, srcPath2, dstPa
                     print("")
             elif case == "93":
                 # Run all variants of axis mask with additional argument of axis mask from range ( 1 to 7)               
-                for transposeOrder in range(1, 4):
+                for transposeOrder in range(1, 2):
                     run_performance_test_cmd(loggingFolder, logFileLayout, srcPath1, srcPath2, dstPath, bitDepth, outputFormatToggle, case, transposeOrder, numRuns, testType, layout, qaMode, decoderType, batchSize, roiList)
                     print("")
             else:

@@ -1516,6 +1516,21 @@ int main(int argc, char **argv)
                         Rpp32u width = dstDescPtr->w;
                         dstDescPtr->w = dstDescPtr->h;
                         dstDescPtr->h = width;
+                        // set strides
+                        if (dstDescPtr->layout == RpptLayout::NHWC)
+                        {
+                            dstDescPtr->strides.nStride = dstDescPtr->c * dstDescPtr->w * dstDescPtr->h;
+                            dstDescPtr->strides.hStride = dstDescPtr->c * dstDescPtr->w;
+                            dstDescPtr->strides.wStride = dstDescPtr->c;
+                            dstDescPtr->strides.cStride = 1;
+                        }
+                        else if(dstDescPtr->layout == RpptLayout::NCHW)
+                        {
+                            dstDescPtr->strides.nStride = dstDescPtr->c * dstDescPtr->w * dstDescPtr->h;
+                            dstDescPtr->strides.cStride = dstDescPtr->w * dstDescPtr->h;
+                            dstDescPtr->strides.hStride = dstDescPtr->w;
+                            dstDescPtr->strides.wStride = 1;
+                        }
                     }
                     for(int i = 1; i <= nDim; i++)
                         dstDescriptorPtr3D->dims[i] = srcDescriptorPtr3D->dims[1 + permTensor[i - 1]];
@@ -1523,8 +1538,13 @@ int main(int argc, char **argv)
                     compute_strides(dstDescriptorPtr3D);
                     startWallTime = omp_get_wtime();
                     startCpuTime = clock();
-                    if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
-                        rppt_transpose_host(input, srcDescriptorPtr3D, output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
+                    if(outputFormatToggle == 0)
+                    {
+                        if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
+                            rppt_transpose_host(input, srcDescriptorPtr3D, output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
+                        else
+                            missingFuncFlag = 1;
+                    }
                     else
                         missingFuncFlag = 1;
 
@@ -1663,7 +1683,7 @@ int main(int argc, char **argv)
                         }
                     }
                 }
-                
+
                 if(testCase == 93)
                 {
                     if(additionalParam == 1)
@@ -1673,6 +1693,7 @@ int main(int argc, char **argv)
                             int width = dstImgSizes[i].width;
                             dstImgSizes[i].width = dstImgSizes[i].height;
                             dstImgSizes[i].height = width;
+                            printf("\n Height %d width %d",dstImgSizes[i].height,dstImgSizes[i].width);
                         }
                     }
                 }

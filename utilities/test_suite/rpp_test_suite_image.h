@@ -519,7 +519,7 @@ inline void set_descriptor_dims_and_strides(RpptDescPtr descPtr, int noOfImages,
     descPtr->c = numChannels;
 
     // Optionally set w stride as a multiple of 8 for src/dst
-    // descPtr->w = (descPtr->w / 8) * 8 + 8 + additionalStride;
+    descPtr->w = (descPtr->w / 8) * 8 + 8 + additionalStride;
     // set strides
     if (descPtr->layout == RpptLayout::NHWC)
     {
@@ -1002,6 +1002,11 @@ inline void compare_output(T* output, string funcName, RpptDescPtr srcDescPtr, R
     {
         refOutputWidth = ((LENS_CORRECTION_GOLDEN_OUTPUT_MAX_WIDTH / 8) * 8) + 8;    // obtain next multiple of 8 after GOLDEN_OUTPUT_MAX_WIDTH
         refOutputHeight = LENS_CORRECTION_GOLDEN_OUTPUT_MAX_HEIGHT;
+    }
+    else if(testCase == 93)
+    {
+        refOutputWidth = GOLDEN_OUTPUT_MAX_WIDTH;
+        refOutputHeight = ((GOLDEN_OUTPUT_MAX_HEIGHT / 8) * 8) + 8; ;
     }
     else
     {
