@@ -1511,6 +1511,12 @@ int main(int argc, char **argv)
                     init_transpose(srcDescriptorPtr3D, roiTensorPtrSrc, transposeRoiTensor);
                     fill_perm_values(srcDescriptorPtr3D, nDim, permTensor, 1, additionalParam);
 
+                    if(additionalParam == 1)
+                    {
+                        Rpp32u width = dstDescPtr->w;
+                        dstDescPtr->w = dstDescPtr->h;
+                        dstDescPtr->h = width;
+                    }
                     for(int i = 1; i <= nDim; i++)
                         dstDescriptorPtr3D->dims[i] = srcDescriptorPtr3D->dims[1 + permTensor[i - 1]];
 
@@ -1618,7 +1624,7 @@ int main(int argc, char **argv)
                     std::ofstream refFile;
                     refFile.open(func + ".csv");
                     for (int i = 0; i < oBufferSize; i++)
-                        refFile << static_cast<int>(*(inputu8 + i)) << ",";
+                        refFile << static_cast<int>(*(outputu8 + i)) << ",";
                     refFile.close();
                 }
 
@@ -1654,6 +1660,19 @@ int main(int argc, char **argv)
                             int idx1 = i * 3;
                             dstImgSizes[i].height = shapeTensor[idx1];
                             dstImgSizes[i].width = shapeTensor[idx1 + 1];
+                        }
+                    }
+                }
+                
+                if(testCase == 93)
+                {
+                    if(additionalParam == 1)
+                    {
+                        for(int i = 0; i < batchSize; i++)
+                        {
+                            int width = dstImgSizes[i].width;
+                            dstImgSizes[i].width = dstImgSizes[i].height;
+                            dstImgSizes[i].height = width;
                         }
                     }
                 }

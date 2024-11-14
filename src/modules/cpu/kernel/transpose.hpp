@@ -140,22 +140,29 @@ void transpose_generic_nd_recursive(T *dst, Rpp32u *dstStrides, T *src, Rpp32u *
 }
 
 template<typename T>
-void transpose_generic_setup_and_run(T *srcPtrTemp, T *dstPtrTemp, Rpp32u *length, Rpp32u *perm, Rpp32u tensorDims)
+void transpose_generic_setup_and_run(T *srcPtrTemp, RpptGenericDescPtr srcGenericDescPtr, T *dstPtrTemp, RpptGenericDescPtr dstGenericDescPtr, Rpp32u *length, Rpp32u *perm, Rpp32u tensorDims)
 {
+
+    Rpp32u dstDims[RPPT_MAX_DIMS];
+    Rpp32u srcDims[RPPT_MAX_DIMS];
     Rpp32u dstShape[RPPT_MAX_DIMS];
     Rpp32u srcStrides[RPPT_MAX_DIMS];
     Rpp32u dstStrides[RPPT_MAX_DIMS];
 
     // compute output shape
     for(Rpp32u i = 0; i < tensorDims; i++)
+    {
         dstShape[i] = length[perm[i]];
+        dstDims[i] = dstGenericDescPtr->dims[i + 1];
+        srcDims[i] = srcGenericDescPtr->dims[i + 1];
+    }
 
     // compute output strides
-    compute_strides(dstStrides, dstShape, tensorDims);
+    compute_strides(dstStrides, dstDims, tensorDims);
 
     // compute input strides and update as per the permute order
     Rpp32u tempStrides[RPPT_MAX_DIMS];
-    compute_strides(tempStrides, length, tensorDims);
+    compute_strides(tempStrides, srcDims, tensorDims);
     for(int i = 0; i < tensorDims; i++)
         srcStrides[i] = tempStrides[perm[i]];
 
@@ -316,7 +323,7 @@ RppStatus transpose_f32_f32_host_tensor(Rpp32f *srcPtr,
                 }
                 else
                 {
-                    transpose_generic_setup_and_run(srcPtrTemp, dstPtrTemp, length, perm, tensorDims);
+                    transpose_generic_setup_and_run(srcPtrTemp, srcGenericDescPtr, dstPtrTemp, dstGenericDescPtr, length, perm, tensorDims);
                 }
             }
             else if (tensorDims == 4)
@@ -373,12 +380,12 @@ RppStatus transpose_f32_f32_host_tensor(Rpp32f *srcPtr,
                 }
                 else
                 {
-                    transpose_generic_setup_and_run(srcPtrTemp, dstPtrTemp, length, perm, tensorDims);
+                    transpose_generic_setup_and_run(srcPtrTemp, srcGenericDescPtr, dstPtrTemp, dstGenericDescPtr, length, perm, tensorDims);
                 }
             }
             else
             {
-                transpose_generic_setup_and_run(srcPtrTemp, dstPtrTemp, length, perm, tensorDims);
+                transpose_generic_setup_and_run(srcPtrTemp, srcGenericDescPtr, dstPtrTemp, srcGenericDescPtr, length, perm, tensorDims);
             }
         }
     }
@@ -426,7 +433,7 @@ RppStatus transpose_generic_host_tensor(T *srcPtr,
         {
             for(int i = 1; i < tensorDims; i++)
                 srcPtrTemp += begin[i - 1] * srcGenericDescPtr->strides[i];
-            transpose_generic_setup_and_run(srcPtrTemp, dstPtrTemp, length, perm, tensorDims);
+            transpose_generic_setup_and_run(srcPtrTemp, srcGenericDescPtr, dstPtrTemp, dstGenericDescPtr, length, perm, tensorDims);
         }
     }
 
