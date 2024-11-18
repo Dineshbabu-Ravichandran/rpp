@@ -63,7 +63,7 @@ int main(int argc, char **argv)
     int decoderType = atoi(argv[13]);
     int batchSize = atoi(argv[14]);
 
-    bool additionalParamCase = (testCase == 8 || testCase == 21 || testCase == 23|| testCase == 24 || testCase == 40 || testCase == 41 || testCase == 49 || testCase == 54 || testCase == 79);
+    bool additionalParamCase = (testCase == 8 || testCase == 21 || testCase == 23|| testCase == 24 || testCase == 40 || testCase == 41 || testCase == 49 || testCase == 54 || testCase == 79 || testCase == 93);
     bool kernelSizeCase = (testCase == 40 || testCase == 41 || testCase == 49 || testCase == 54);
     bool dualInputCase = (testCase == 2 || testCase == 30 || testCase == 33 || testCase == 61 || testCase == 63 || testCase == 65 || testCase == 68);
     bool randomOutputCase = (testCase == 6 || testCase == 8 || testCase == 84 || testCase == 49 || testCase == 54);
@@ -188,6 +188,7 @@ int main(int argc, char **argv)
     RpptInterpolationType interpolationType = RpptInterpolationType::BILINEAR;
     std::string interpolationTypeName = "";
     std::string noiseTypeName = "";
+    std::string transposeOrderName = "";
     if (kernelSizeCase)
     {
         char additionalParam_char[2];
@@ -206,6 +207,12 @@ int main(int argc, char **argv)
         noiseTypeName = get_noise_type(additionalParam);
         func += "_noiseType";
         func += noiseTypeName.c_str();
+    }
+    if(testCase == 93)
+    {
+        transposeOrderName = std::to_string(additionalParam);
+        func +="_permOrder";
+        func += std::to_string(additionalParam);
     }
 
     if(!qaFlag)
@@ -355,11 +362,21 @@ int main(int argc, char **argv)
     // create generic descriptor and params in case of slice
     RpptGenericDesc descriptor3D;
     RpptGenericDescPtr descriptorPtr3D = &descriptor3D;
+    RpptGenericDescPtr srcDescriptorPtr3D, dstDescriptorPtr3D;
+    CHECK_RETURN_STATUS(hipHostMalloc(&srcDescriptorPtr3D, sizeof(RpptGenericDesc)));
+    CHECK_RETURN_STATUS(hipHostMalloc(&dstDescriptorPtr3D, sizeof(RpptGenericDesc)));
     Rpp32s *anchorTensor = NULL, *shapeTensor = NULL;
     Rpp32u *roiTensor = NULL;
+    Rpp32u *transposeRoiTensor = NULL;
+    Rpp32u *permTensor = NULL;
     if(testCase == 92)
         set_generic_descriptor_slice(srcDescPtr, descriptorPtr3D, batchSize);
 
+    if(testCase == 93)
+    {
+        set_generic_descriptor_slice(srcDescPtr, srcDescriptorPtr3D, batchSize);
+        set_generic_descriptor_slice(dstDescPtr, dstDescriptorPtr3D, batchSize);
+    }
     // Allocate hip memory for src/dst
     CHECK_RETURN_STATUS(hipMalloc(&d_input, inputBufferSize));
     CHECK_RETURN_STATUS(hipMalloc(&d_output, outputBufferSize));
@@ -1454,6 +1471,56 @@ int main(int argc, char **argv)
 
                     break;
                 }
+                case 93:
+                {
+                    testCaseName  = "transpose";
+
+                    Rpp32u nDim = srcDescriptorPtr3D->numDims - 1;
+                    if(transposeRoiTensor == NULL)
+                        CHECK_RETURN_STATUS(hipHostMalloc(&transposeRoiTensor, batchSize * 3 * 2 * sizeof(Rpp32u)));
+                    if(permTensor == NULL)
+                        CHECK_RETURN_STATUS(hipHostMalloc(&permTensor, 3 * sizeof(Rpp32u)));
+                    init_transpose(srcDescriptorPtr3D, roiTensorPtrSrc, transposeRoiTensor);
+                    fill_perm_values(srcDescriptorPtr3D, nDim, permTensor, 1, additionalParam);
+
+                    if(additionalParam == 1)
+                    {
+                        Rpp32u width = dstDescPtr->w;
+                        dstDescPtr->w = dstDescPtr->h;
+                        dstDescPtr->h = width;
+                        // set strides
+                        if (dstDescPtr->layout == RpptLayout::NHWC)
+                        {
+                            dstDescPtr->strides.nStride = dstDescPtr->c * dstDescPtr->w * dstDescPtr->h;
+                            dstDescPtr->strides.hStride = dstDescPtr->c * dstDescPtr->w;
+                            dstDescPtr->strides.wStride = dstDescPtr->c;
+                            dstDescPtr->strides.cStride = 1;
+                        }
+                        else if(dstDescPtr->layout == RpptLayout::NCHW)
+                        {
+                            dstDescPtr->strides.nStride = dstDescPtr->c * dstDescPtr->w * dstDescPtr->h;
+                            dstDescPtr->strides.cStride = dstDescPtr->w * dstDescPtr->h;
+                            dstDescPtr->strides.hStride = dstDescPtr->w;
+                            dstDescPtr->strides.wStride = 1;
+                        }
+                    }
+                    for(int i = 1; i <= nDim; i++)
+                        dstDescriptorPtr3D->dims[i] = srcDescriptorPtr3D->dims[1 + permTensor[i - 1]];
+
+                    compute_strides(dstDescriptorPtr3D);
+                    startWallTime = omp_get_wtime();
+                    if(outputFormatToggle == 0)
+                    {
+                        if (inputBitDepth == 0 || inputBitDepth == 1 || inputBitDepth == 2 || inputBitDepth == 5)
+                            rppt_transpose_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
+                        else
+                            missingFuncFlag = 1;
+                    }
+                    else
+                        missingFuncFlag = 1;
+
+                    break;
+                }
                 default:
                 {
                     missingFuncFlag = 1;
@@ -1586,6 +1653,18 @@ int main(int argc, char **argv)
                         }
                     }
                 }
+                if(testCase == 93)
+                {
+                    if(additionalParam == 1)
+                    {
+                        for(int i = 0; i < batchSize; i++)
+                        {
+                            int width = dstImgSizes[i].width;
+                            dstImgSizes[i].width = dstImgSizes[i].height;
+                            dstImgSizes[i].height = width;
+                        }
+                    }
+                }
 
                 /*Compare the output of the function with golden outputs only if
                 1.QA Flag is set
@@ -1593,7 +1672,7 @@ int main(int argc, char **argv)
                 3.source and destination layout are the same
                 4.augmentation case does not generate random output*/
                 if(qaFlag && inputBitDepth == 0 && ((srcDescPtr->layout == dstDescPtr->layout) || pln1OutTypeCase) && !(randomOutputCase) && !(nonQACase))
-                    compare_output<Rpp8u>(outputu8, testCaseName, srcDescPtr, dstDescPtr, dstImgSizes, batchSize, interpolationTypeName, noiseTypeName, "", additionalParam, testCase, dst, scriptPath);
+                    compare_output<Rpp8u>(outputu8, testCaseName, srcDescPtr, dstDescPtr, dstImgSizes, batchSize, interpolationTypeName, noiseTypeName, transposeOrderName, additionalParam, testCase, dst, scriptPath);
 
                 // Calculate exact dstROI in XYWH format for OpenCV dump
                 if (roiTypeSrc == RpptRoiType::LTRB)
