@@ -31,6 +31,8 @@ SOFTWARE.
 #include <iostream>
 #include <time.h>
 #include <filesystem.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <omp.h>
 #include <fstream>
 #include <unistd.h>
@@ -411,6 +413,7 @@ inline void write_nifti_file(nifti_1_header *niftiHeader, NIFTI_DATATYPE *niftiD
 
 inline void write_image_from_nifti_opencv(uchar *niftiDataXYFrameU8, int niftiHeaderImageWidth, RpptRoiXyzwhd *roiGenericSrcPtr, uchar *outputBufferOpenCV, int zPlane, int Channel, int batchCount, string dst_path, string func, int index)
 {
+    mkdir(dst_path.c_str(), 0700);
     static int imageCount = 0;
     if (imageCount > MAX_IMAGE_DUMP)
         exit(0);

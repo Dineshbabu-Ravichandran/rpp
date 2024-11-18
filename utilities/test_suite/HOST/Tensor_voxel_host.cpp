@@ -30,7 +30,8 @@ int main(int argc, char * argv[])
     const int MIN_ARG_COUNT = 11;
 
     int layoutType, testCase, testType, qaFlag, numRuns, batchSize, inputBitDepth;
-    char *headerFile, *dataFile, *dstPath;
+    char *headerFile, *dataFile;
+    string dstPath;
 
     if (argc < MIN_ARG_COUNT)
     {
@@ -121,6 +122,11 @@ int main(int argc, char * argv[])
     int pln1OutTypeCase = 0, outputFormatToggle = 0;
     string funcType = set_function_type(layoutType, pln1OutTypeCase, outputFormatToggle, "HOST");
     funcName += funcType;
+    if(!qaFlag)
+    {
+        dstPath += "/";
+        dstPath += funcName;
+    }
 
     // set src/dst xyzwhd ROI tensors
     RpptROI3D *roiGenericSrcPtr = (RpptROI3D *) calloc(batchSize, sizeof(RpptROI3D));
