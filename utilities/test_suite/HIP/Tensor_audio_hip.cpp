@@ -133,6 +133,19 @@ int main(int argc, char **argv)
     if (testCase == 4)
         oBufferSize = spectrogramMaxBufferSize;
 
+    // create generic descriptor in case of slice
+    RpptGenericDesc descriptor3D;
+    RpptGenericDescPtr descriptorPtr3D = &descriptor3D;
+    if(testCase == 5)
+    {
+        descriptorPtr3D->numDims = 2;
+        descriptorPtr3D->offsetInBytes = 0;
+        descriptorPtr3D->dataType = RpptDataType::F32;
+        descriptorPtr3D->dims[0] = batchSize;
+        descriptorPtr3D->dims[1] = maxSrcWidth;
+        descriptorPtr3D->strides[0] = descriptorPtr3D->dims[1];
+    }
+
     // allocate hip buffers for input & output
     Rpp32f *inputf32 = static_cast<Rpp32f *>(calloc(iBufferSize, sizeof(Rpp32f)));
     Rpp32f *outputf32 = static_cast<Rpp32f *>(calloc(oBufferSize, sizeof(Rpp32f)));
@@ -190,6 +203,7 @@ int main(int argc, char **argv)
         // read and decode audio and fill the audio dim values
         read_audio_batch_and_fill_dims(srcDescPtr, inputf32, audioFilesPath, iterCount, srcLengthTensor, channelsTensor);
         CHECK_RETURN_STATUS(hipMemcpy(d_inputf32, inputf32, iBufferSize * sizeof(Rpp32f), hipMemcpyHostToDevice));
+        CHECK_RETURN_STATUS(hipMemset(d_outputf32, 0, oBufferSize * sizeof(Rpp32f)));
         for (int perfRunCount = 0; perfRunCount < numRuns; perfRunCount++)
         {
             double startWallTime, endWallTime;
@@ -292,6 +306,38 @@ int main(int argc, char **argv)
 
                     startWallTime = omp_get_wtime();
                     rppt_spectrogram_gpu(d_inputf32, srcDescPtr, d_outputf32, dstDescPtr, srcLengthTensor, centerWindows, reflectPadding, windowFn, nfft, power, windowLength, windowStep, handle);
+
+                    break;
+                }
+                case 5:
+                {
+                    testCaseName = "slice";
+                    Rpp32u nDim = 1; // testing for 1D slice
+                    auto fillValue = 0;
+                    bool enablePadding = true;
+                    Rpp32s *anchorTensor = NULL, *shapeTensor = NULL;
+                    Rpp32u *roiTensor = NULL;
+                    if(anchorTensor == NULL)
+                        CHECK_RETURN_STATUS(hipHostMalloc(&anchorTensor, batchSize * nDim * sizeof(Rpp32s)));
+                    if(shapeTensor == NULL)
+                        CHECK_RETURN_STATUS(hipHostMalloc(&shapeTensor, batchSize * nDim * sizeof(Rpp32s)));
+                    if(roiTensor == NULL)
+                        CHECK_RETURN_STATUS(hipHostMalloc(&roiTensor, batchSize * 2 * nDim * sizeof(Rpp32u)));
+
+
+                    // 1D slice arguments
+                    for (int i = 0; i < batchSize; i++)
+                    {
+                        int idx = i * nDim * 2;
+                        roiTensor[idx] = 10;
+                        roiTensor[idx + 1] = srcLengthTensor[i];
+                        anchorTensor[i] = 10;
+                        shapeTensor[i] = dstDims[i].width = srcLengthTensor[i] / 2;
+                        dstDims[i].height = 1;
+                    }
+
+                    startWallTime = omp_get_wtime();
+                    rppt_slice_gpu(d_inputf32, descriptorPtr3D, d_outputf32, descriptorPtr3D, anchorTensor, shapeTensor, &fillValue, enablePadding, roiTensor, handle);
 
                     break;
                 }
