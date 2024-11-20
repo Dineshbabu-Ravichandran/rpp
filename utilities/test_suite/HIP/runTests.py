@@ -372,7 +372,10 @@ else:
                                 run_performance_test_with_profiler(loggingFolder, logFileLayout, srcPath1, srcPath2, dstPath, bitDepth, outputFormatToggle, case, noiseType, "_noiseType", numRuns, testType, layout, qaMode, decoderType, batchSize, roiList)
                         elif case == "21" or case == "23" or case == "24" or case == "79":
                             # Run all variants of interpolation functions with additional argument of interpolationType = bicubic / bilinear / gaussian / nearestneigbor / lanczos / triangular
-                            for interpolationType in range(6):
+                            interpolationRange = 6
+                            if case =='79':
+                                interpolationRange = 2
+                            for interpolationType in range(interpolationRange):
                                 run_performance_test_with_profiler(loggingFolder, logFileLayout, srcPath1, srcPath2, dstPath, bitDepth, outputFormatToggle, case, interpolationType, "_interpolationType", numRuns, testType, layout, qaMode, decoderType, batchSize, roiList)
                         else:
                             run_performance_test_with_profiler(loggingFolder, logFileLayout, srcPath1, srcPath2, dstPath, bitDepth, outputFormatToggle, case, "", "", numRuns, testType, layout, qaMode, decoderType, batchSize, roiList)

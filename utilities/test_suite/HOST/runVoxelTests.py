@@ -38,7 +38,7 @@ qaInputFile = scriptPath + "/../TEST_QA_IMAGES_VOXEL"
 outFolderPath = os.getcwd()
 buildFolderPath = os.getcwd()
 caseMin = 0
-caseMax = 6
+caseMax = 7
 
 # Get a list of log files based on a flag for preserving output
 def get_log_file_list():
@@ -211,7 +211,7 @@ subprocess.call(["cmake", scriptPath], cwd=".")   # nosec
 subprocess.call(["make", "-j16"], cwd=".")  # nosec
 
 # List of cases supported
-supportedCaseList = ['0', '1', '2', '3', '4', '5', '6']
+supportedCaseList = ['0', '1', '2', '3', '4', '5', '6', '7']
 
 bitDepths = [0, 2]
 noCaseSupported = all(case not in supportedCaseList for case in caseList)

@@ -69,7 +69,8 @@ std::map<int, string> augmentationMap =
     {3, "subtract_scalar"},
     {4, "flip_voxel"},
     {5, "multiply_scalar"},
-    {6, "gaussian_noise_voxel"}
+    {6, "gaussian_noise_voxel"},
+    {7, "transpose"}
 };
 
 template <typename T>
@@ -305,6 +306,81 @@ void init_slice_voxel(RpptGenericDescPtr descriptorPtr3D, RpptROI3D *roiGenericS
             shapeTensor[idx1 + 2] = roiTensor[idx2 + 6] / 2;
             shapeTensor[idx1 + 3] = roiTensor[idx2 + 7];
         }
+    }
+}
+
+// initialize the roi values required for normalize
+void init_transpose(RpptGenericDescPtr descriptorPtrND, RpptROI3D *roiGenericSrcPtr, Rpp32u *roiTensor)
+{
+    if (descriptorPtrND->layout == RpptLayout::NCDHW)
+    {
+        for(int i = 0; i < descriptorPtrND->dims[0]; i++)
+        {
+            int idx1 = i * 4;
+            int idx2 = i * 8;
+            roiTensor[idx2] = 0;
+            roiTensor[idx2 + 1] = roiGenericSrcPtr[i].xyzwhdROI.xyz.z;
+            roiTensor[idx2 + 2] = roiGenericSrcPtr[i].xyzwhdROI.xyz.y;
+            roiTensor[idx2 + 3] = roiGenericSrcPtr[i].xyzwhdROI.xyz.x;
+            roiTensor[idx2 + 4] = descriptorPtrND->dims[1];
+            roiTensor[idx2 + 5] = roiGenericSrcPtr[i].xyzwhdROI.roiDepth;
+            roiTensor[idx2 + 6] = roiGenericSrcPtr[i].xyzwhdROI.roiHeight;
+            roiTensor[idx2 + 7] = roiGenericSrcPtr[i].xyzwhdROI.roiWidth;
+        }
+    }
+    else if(descriptorPtrND->layout == RpptLayout::NDHWC)
+    {
+        for(int i = 0; i < descriptorPtrND->dims[0]; i++)
+        {
+            int idx1 = i * 4;
+            int idx2 = i * 8;
+            roiTensor[idx2] = roiGenericSrcPtr[i].xyzwhdROI.xyz.z;
+            roiTensor[idx2 + 1] = roiGenericSrcPtr[i].xyzwhdROI.xyz.y;
+            roiTensor[idx2 + 2] = roiGenericSrcPtr[i].xyzwhdROI.xyz.x;
+            roiTensor[idx2 + 3] = 0;
+            roiTensor[idx2 + 4] = roiGenericSrcPtr[i].xyzwhdROI.roiDepth;
+            roiTensor[idx2 + 5] = roiGenericSrcPtr[i].xyzwhdROI.roiHeight;
+            roiTensor[idx2 + 6] = roiGenericSrcPtr[i].xyzwhdROI.roiWidth;
+            roiTensor[idx2 + 7] = descriptorPtrND->dims[4];
+        }
+    }
+}
+
+// fill the permutation values used for transpose
+void fill_perm_values(RpptGenericDescPtr descriptorPtrND, Rpp32u nDim, Rpp32u *permTensor, bool qaMode, int permOrder)
+{
+    if(nDim == 4)
+    {
+        if(descriptorPtrND->layout == RpptLayout::NDHWC)
+        {
+            permTensor[0] = 0;
+            permTensor[1] = 2;
+            permTensor[2] = 1;
+            permTensor[3] = 3;
+        }
+        else if(descriptorPtrND->layout == RpptLayout::NCDHW)
+        {
+            permTensor[0] = 0;
+            permTensor[1] = 1;
+            permTensor[2] = 3;
+            permTensor[3] = 2;
+        }
+
+    }
+}
+
+// Compute strides given Generic Tensor
+void compute_strides(RpptGenericDescPtr descriptorPtr)
+{
+    if (descriptorPtr->numDims > 0)
+    {
+        uint64_t v = 1;
+        for (int i = descriptorPtr->numDims - 1; i > 0; i--)
+        {
+            descriptorPtr->strides[i] = v;
+            v *= descriptorPtr->dims[i];
+        }
+        descriptorPtr->strides[0] = v;
     }
 }
 
