@@ -143,7 +143,7 @@ int main(int argc, char **argv)
         descriptorPtr3D->dataType = RpptDataType::F32;
         descriptorPtr3D->dims[0] = batchSize;
         descriptorPtr3D->dims[1] = maxSrcWidth;
-        descriptorPtr3D->strides[0] = descriptorPtr3D->dims[1];
+        descriptorPtr3D->strides[0] = dstDescPtr->strides.nStride;
     }
 
     // allocate hip buffers for input & output
@@ -203,7 +203,6 @@ int main(int argc, char **argv)
         // read and decode audio and fill the audio dim values
         read_audio_batch_and_fill_dims(srcDescPtr, inputf32, audioFilesPath, iterCount, srcLengthTensor, channelsTensor);
         CHECK_RETURN_STATUS(hipMemcpy(d_inputf32, inputf32, iBufferSize * sizeof(Rpp32f), hipMemcpyHostToDevice));
-        CHECK_RETURN_STATUS(hipMemset(d_outputf32, 0, oBufferSize * sizeof(Rpp32f)));
         for (int perfRunCount = 0; perfRunCount < numRuns; perfRunCount++)
         {
             double startWallTime, endWallTime;

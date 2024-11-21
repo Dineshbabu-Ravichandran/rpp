@@ -367,15 +367,16 @@ int main(int argc, char * argv[])
                     init_transpose(srcDescriptorPtr3D, roiGenericSrcPtr, roiTensor);
 
                     for(int i = 1; i <= 4; i++)
-                    {
                         dstDescriptorPtr3D->dims[i] = srcDescriptorPtr3D->dims[1 + permTensor[i - 1]];
-                    }
                     compute_strides(dstDescriptorPtr3D);
 
                     startWallTime = omp_get_wtime();
-                    rppt_transpose_host(input, srcDescriptorPtr3D, output, dstDescriptorPtr3D, permTensor, roiTensor, handle);
+                    if (inputBitDepth == 0 || inputBitDepth == 2)
+                        rppt_transpose_host(input, srcDescriptorPtr3D, output, dstDescriptorPtr3D, permTensor, roiTensor, handle);
+                    else
+                        missingFuncFlag = 1;
 
-                        break;
+                    break;
                 }
                 default:
                 {

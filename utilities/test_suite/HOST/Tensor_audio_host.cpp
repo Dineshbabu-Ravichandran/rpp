@@ -122,7 +122,7 @@ int main(int argc, char **argv)
         descriptorPtr3D->dataType = RpptDataType::F32;
         descriptorPtr3D->dims[0] = batchSize;
         descriptorPtr3D->dims[1] = maxSrcWidth;
-        descriptorPtr3D->strides[0] = descriptorPtr3D->dims[1];
+        descriptorPtr3D->strides[0] = dstDescPtr->strides.nStride;
     }
 
     // set buffer sizes for src/dst
