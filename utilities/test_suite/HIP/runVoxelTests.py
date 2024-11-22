@@ -38,7 +38,7 @@ qaInputFile = scriptPath + "/../TEST_QA_IMAGES_VOXEL"
 outFolderPath = os.getcwd()
 buildFolderPath = os.getcwd()
 caseMin = 0
-caseMax = 6
+caseMax = 7
 
 def get_log_file_list(preserveOutput):
     return [
@@ -236,7 +236,7 @@ subprocess.call(["cmake", scriptPath], cwd=".")   # nosec
 subprocess.call(["make", "-j16"], cwd=".")  # nosec
 
 # List of cases supported
-supportedCaseList = ['0', '1', '2', '3', '4', '5', '6']
+supportedCaseList = ['0', '1', '2', '3', '4', '5', '6', '7']
 
 # Create folders based on testType and profilingOption
 if testType == 1 and profilingOption == "YES":

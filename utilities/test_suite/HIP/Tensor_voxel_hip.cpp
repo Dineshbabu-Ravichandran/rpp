@@ -109,9 +109,11 @@ int main(int argc, char * argv[])
     maxX = ((maxX / 8) * 8) + 8;
 
     // set src/dst generic tensor descriptors
-    RpptGenericDesc descriptor3D;
-    RpptGenericDescPtr descriptorPtr3D = &descriptor3D;
-    set_generic_descriptor(descriptorPtr3D, batchSize, maxX, maxY, maxZ, numChannels, offsetInBytes, layoutType, inputBitDepth);
+    RpptGenericDescPtr srcDescriptorPtr3D, dstDescriptorPtr3D;
+    CHECK_RETURN_STATUS(hipHostMalloc(&srcDescriptorPtr3D, sizeof(RpptGenericDesc)));
+    CHECK_RETURN_STATUS(hipHostMalloc(&dstDescriptorPtr3D, sizeof(RpptGenericDesc)));
+    set_generic_descriptor(srcDescriptorPtr3D, batchSize, maxX, maxY, maxZ, numChannels, offsetInBytes, layoutType, inputBitDepth);
+    set_generic_descriptor(dstDescriptorPtr3D, batchSize, maxX, maxY, maxZ, numChannels, offsetInBytes, layoutType, inputBitDepth);
 
     // update funcName based on bitdepth and layout
     if(inputBitDepth == 0)
@@ -133,11 +135,11 @@ int main(int argc, char * argv[])
     RpptROI3D *roiGenericSrcPtr = reinterpret_cast<RpptROI3D *>(pinnedMemROI);
 
     // Set buffer sizes in pixels for src/dst
-    Rpp64u iBufferSize = (Rpp64u)descriptorPtr3D->strides[0] * (Rpp64u)descriptorPtr3D->dims[0]; //  (d x h x w x c) x (n)
+    Rpp64u iBufferSize = (Rpp64u)srcDescriptorPtr3D->strides[0] * (Rpp64u)srcDescriptorPtr3D->dims[0]; //  (d x h x w x c) x (n)
     Rpp64u oBufferSize = iBufferSize;   // User can provide a different oBufferSize
 
     // Set buffer sizes in bytes for src/dst (including offsets)
-    Rpp64u iBufferSizeInBytes = iBufferSize * get_size_of_data_type(descriptorPtr3D->dataType) + descriptorPtr3D->offsetInBytes;
+    Rpp64u iBufferSizeInBytes = iBufferSize * get_size_of_data_type(srcDescriptorPtr3D->dataType) + srcDescriptorPtr3D->offsetInBytes;
     Rpp64u oBufferSizeInBytes = iBufferSizeInBytes;
 
     void *input, *output;
@@ -159,6 +161,8 @@ int main(int argc, char * argv[])
     // arguments required for slice
     Rpp32s *anchorTensor = NULL, *shapeTensor = NULL;
     Rpp32u *roiTensor = NULL;
+    Rpp32u *transposeRoiTensor = NULL;
+    Rpp32u *permTensor = NULL;
 
     rppHandle_t handle;
     hipStream_t stream;
@@ -214,8 +218,8 @@ int main(int argc, char * argv[])
         }
 
         // Convert default NIFTI_DATATYPE unstrided buffer to RpptDataType::F32 strided buffer
-        convert_input_niftitype_to_Rpp32f_generic(niftiDataArray, niftiHeaderTemp, inputF32 , descriptorPtr3D);
-        convert_input_bitdepth_from_F32(input, inputF32, inputBitDepth, iBufferSize, iBufferSizeInBytes, descriptorPtr3D);
+        convert_input_niftitype_to_Rpp32f_generic(niftiDataArray, niftiHeaderTemp, inputF32 , srcDescriptorPtr3D);
+        convert_input_bitdepth_from_F32(input, inputF32, inputBitDepth, iBufferSize, iBufferSizeInBytes, srcDescriptorPtr3D);
 
         //Copy input buffer to hip
         CHECK_RETURN_STATUS(hipMemcpy(d_input, input, iBufferSizeInBytes, hipMemcpyHostToDevice));
@@ -239,7 +243,7 @@ int main(int argc, char * argv[])
 
                     startWallTime = omp_get_wtime();
                     if(inputBitDepth == 2)
-                        rppt_fused_multiply_add_scalar_gpu(d_input, descriptorPtr3D, d_output, descriptorPtr3D, mulTensor, addTensor, roiGenericSrcPtr, roiTypeSrc, handle);
+                        rppt_fused_multiply_add_scalar_gpu(d_input, srcDescriptorPtr3D, d_output, srcDescriptorPtr3D, mulTensor, addTensor, roiGenericSrcPtr, roiTypeSrc, handle);
                     else
                         missingFuncFlag = 1;
 
@@ -256,11 +260,11 @@ int main(int argc, char * argv[])
                         CHECK_RETURN_STATUS(hipHostMalloc(&roiTensor, batchSize * 8 * sizeof(Rpp32u)));
                     bool enablePadding = false;
                     auto fillValue = 0;
-                    init_slice_voxel(descriptorPtr3D, roiGenericSrcPtr, roiTensor, anchorTensor, shapeTensor);
+                    init_slice_voxel(srcDescriptorPtr3D, roiGenericSrcPtr, roiTensor, anchorTensor, shapeTensor);
 
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 0 || inputBitDepth == 2)
-                        rppt_slice_gpu(d_input, descriptorPtr3D, d_output, descriptorPtr3D, anchorTensor, shapeTensor, &fillValue, enablePadding, roiTensor, handle);
+                        rppt_slice_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, anchorTensor, shapeTensor, &fillValue, enablePadding, roiTensor, handle);
                     else
                         missingFuncFlag = 1;
 
@@ -276,7 +280,7 @@ int main(int argc, char * argv[])
 
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 2)
-                        rppt_add_scalar_gpu(d_input, descriptorPtr3D, d_output, descriptorPtr3D, addTensor, roiGenericSrcPtr, roiTypeSrc, handle);
+                        rppt_add_scalar_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, addTensor, roiGenericSrcPtr, roiTypeSrc, handle);
                     else
                         missingFuncFlag = 1;
 
@@ -292,7 +296,7 @@ int main(int argc, char * argv[])
 
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 2)
-                        rppt_subtract_scalar_gpu(d_input, descriptorPtr3D, d_output, descriptorPtr3D, subtractTensor, roiGenericSrcPtr, roiTypeSrc, handle);
+                        rppt_subtract_scalar_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, subtractTensor, roiGenericSrcPtr, roiTypeSrc, handle);
                     else
                         missingFuncFlag = 1;
 
@@ -314,7 +318,7 @@ int main(int argc, char * argv[])
 
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 0 || inputBitDepth == 2)
-                        rppt_flip_voxel_gpu(d_input, descriptorPtr3D, d_output, descriptorPtr3D, horizontalTensor, verticalTensor, depthTensor, roiGenericSrcPtr, roiTypeSrc, handle);
+                        rppt_flip_voxel_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, horizontalTensor, verticalTensor, depthTensor, roiGenericSrcPtr, roiTypeSrc, handle);
                     else
                         missingFuncFlag = 1;
 
@@ -330,7 +334,7 @@ int main(int argc, char * argv[])
 
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 2)
-                        rppt_multiply_scalar_gpu(d_input, descriptorPtr3D, d_output, descriptorPtr3D, mulTensor, roiGenericSrcPtr, roiTypeSrc, handle);
+                        rppt_multiply_scalar_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, mulTensor, roiGenericSrcPtr, roiTypeSrc, handle);
                     else
                         missingFuncFlag = 1;
 
@@ -351,7 +355,31 @@ int main(int argc, char * argv[])
 
                     startWallTime = omp_get_wtime();
                     if (inputBitDepth == 0 || inputBitDepth == 2)
-                        rppt_gaussian_noise_voxel_gpu(d_input, descriptorPtr3D, d_output, descriptorPtr3D, meanTensor, stdDevTensor, seed, roiGenericSrcPtr, roiTypeSrc, handle);
+                        rppt_gaussian_noise_voxel_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, meanTensor, stdDevTensor, seed, roiGenericSrcPtr, roiTypeSrc, handle);
+                    else
+                        missingFuncFlag = 1;
+
+                    break;
+                }
+                case 7:
+                {
+                    testCaseName  = "transpose";
+                    if(transposeRoiTensor == NULL)
+                        CHECK_RETURN_STATUS(hipHostMalloc(&transposeRoiTensor, batchSize * 3 * 2 * sizeof(Rpp32u)));
+                    if(permTensor == NULL)
+                        CHECK_RETURN_STATUS(hipHostMalloc(&permTensor, 3 * sizeof(Rpp32u)));
+
+                    fill_perm_values(srcDescriptorPtr3D, 4, permTensor, 0, 0);
+
+                    init_transpose(srcDescriptorPtr3D, roiGenericSrcPtr, transposeRoiTensor);
+
+                    for(int i = 1; i <= 4; i++)
+                        dstDescriptorPtr3D->dims[i] = srcDescriptorPtr3D->dims[1 + permTensor[i - 1]];
+                    compute_strides(dstDescriptorPtr3D);
+
+                    startWallTime = omp_get_wtime();
+                    if (inputBitDepth == 0 || inputBitDepth == 2)
+                        rppt_transpose_gpu(d_input, srcDescriptorPtr3D, d_output, dstDescriptorPtr3D, permTensor, transposeRoiTensor, handle);
                     else
                         missingFuncFlag = 1;
 
@@ -381,7 +409,7 @@ int main(int argc, char * argv[])
 
         // Copy output buffer to host
         CHECK_RETURN_STATUS(hipMemcpy(output, d_output, oBufferSizeInBytes, hipMemcpyDeviceToHost));
-        convert_output_bitdepth_to_f32(output, outputF32, inputBitDepth, oBufferSize, oBufferSizeInBytes, descriptorPtr3D);
+        convert_output_bitdepth_to_f32(output, outputF32, inputBitDepth, oBufferSize, oBufferSizeInBytes, dstDescriptorPtr3D);
         if(testType == 0)
         {
             cout <<"\n\n";
@@ -409,7 +437,7 @@ int main(int argc, char * argv[])
             if(testCase == 1)
             {
                 // update the roi for comparision with the shapeTensor values
-                if (descriptorPtr3D->layout == RpptLayout::NCDHW)
+                if (srcDescriptorPtr3D->layout == RpptLayout::NCDHW)
                 {
                     for(int i = 0; i < batchSize; i++)
                     {
@@ -422,7 +450,7 @@ int main(int argc, char * argv[])
                         roiGenericSrcPtr[i].xyzwhdROI.roiWidth = shapeTensor[idx1 + 3];
                     }
                 }
-                else if(descriptorPtr3D->layout == RpptLayout::NDHWC)
+                else if(srcDescriptorPtr3D->layout == RpptLayout::NDHWC)
                 {
                     for(int i = 0; i < batchSize; i++)
                     {
@@ -441,13 +469,13 @@ int main(int argc, char * argv[])
             1.QA Flag is set
             2.input bit depth 2 (F32)*/
             if(qaFlag && inputBitDepth == 2)
-                compare_output(outputF32, oBufferSize, testCaseName, layoutType, descriptorPtr3D, (RpptRoiXyzwhd *)roiGenericSrcPtr, dstPath, scriptPath);
+                compare_output(outputF32, oBufferSize, testCaseName, layoutType, dstDescriptorPtr3D, (RpptRoiXyzwhd *)roiGenericSrcPtr, dstPath, scriptPath);
             else
             {
                 for(int batchCount = 0; batchCount < batchSize; batchCount++)
                 {
                     int index = iterCount * batchSize + batchCount;
-                    Rpp32f *outputTemp = outputF32 + batchCount * descriptorPtr3D->strides[0];
+                    Rpp32f *outputTemp = outputF32 + batchCount * dstDescriptorPtr3D->strides[0];
                     for(int i = 0; i < numChannels; i++) // temporary changes to process pln3
                     {
                         int xyFrameSize = niftiHeaderTemp[batchCount].dim[1] * niftiHeaderTemp[batchCount].dim[2];
@@ -459,11 +487,11 @@ int main(int argc, char * argv[])
 
                         // Convert RpptDataType::F32 strided buffer to default NIFTI_DATATYPE unstrided buffer
                         Rpp64u increment;
-                        if (descriptorPtr3D->layout == RpptLayout::NCDHW)
-                            increment = (Rpp64u)descriptorPtr3D->strides[1];
+                        if (dstDescriptorPtr3D->layout == RpptLayout::NCDHW)
+                            increment = (Rpp64u)dstDescriptorPtr3D->strides[1];
                         else
                             increment = 1;
-                        convert_output_Rpp32f_to_niftitype_generic(outputTemp + i * increment, descriptorPtr3D, niftiDataArray[batchCount], &niftiHeaderTemp[batchCount]);
+                        convert_output_Rpp32f_to_niftitype_generic(outputTemp + i * increment, dstDescriptorPtr3D, niftiDataArray[batchCount], &niftiHeaderTemp[batchCount]);
                         NIFTI_DATATYPE min = niftiDataArray[batchCount][0];
                         NIFTI_DATATYPE max = niftiDataArray[batchCount][0];
                         for (int i = 0; i < dataSize; i++)
