@@ -133,11 +133,6 @@ int main(int argc, char **argv)
     Rpp8u *inputU8 = NULL;
     Rpp8u *outputU8 = NULL;
     Rpp64u bufferSizeU8 = iBufferSize * sizeof(Rpp8u) ;
-    if(bitDepth == 0)
-    {
-        inputU8 = static_cast<Rpp8u *>(calloc(iBufferSize, sizeof(Rpp8u)));
-        outputU8 = static_cast<Rpp8u *>(calloc(iBufferSize * 2, sizeof(Rpp8u)));
-    }
 
     // read input data
     if(qaMode)
@@ -155,14 +150,6 @@ int main(int argc, char **argv)
         {
             // inputF32[i] = static_cast<float>(std::rand() % 255);
             inputF32[i] = static_cast<float>(i);
-        }
-    }
-
-    if (bitDepth == 0)
-    {
-        for(int i = 0; i < bufferSizeU8; i++)
-        {
-            inputU8[i] = std::min(std::max(static_cast<unsigned char>(inputF32[i]), static_cast<unsigned char>(0)), static_cast<unsigned char>(255));
         }
     }
 
@@ -249,14 +236,7 @@ int main(int argc, char **argv)
                 testCaseName  = "concat";
 
                 startWallTime = omp_get_wtime();
-                if(bitDepth == 0)
-                {
-                    rppt_concat_host(inputU8, inputU8, srcDescriptorPtrND, srcDescriptorPtrND, outputU8, dstDescriptorPtrND, axisMask, roiTensor, roiTensor, handle);
-                }
-                else
-                {
-                    rppt_concat_host(inputF32, inputF32Second, srcDescriptorPtrND, srcDescriptorPtrNDSecond, outputF32, dstDescriptorPtrND, axisMask, roiTensor, roiTensorSecond, handle);
-                }
+                rppt_concat_host(inputF32, inputF32Second, srcDescriptorPtrND, srcDescriptorPtrNDSecond, outputF32, dstDescriptorPtrND, axisMask, roiTensor, roiTensorSecond, handle);
 
                 break;
             }
@@ -274,15 +254,6 @@ int main(int argc, char **argv)
         avgWallTime += wallTime;
     }
     
-    if(bitDepth == 0)
-    {
-        Rpp64u bufferLength = oBufferSize * sizeof(Rpp8u);
-        // Copy U8 buffer to F32 buffer for display purposes
-        for(int i = 0; i < bufferLength; i++)
-        {
-            outputF32[i] = static_cast<float>(outputU8[i]);
-        }
-    }
     if(DEBUG_MODE)
     {
         std::ofstream refFile;
@@ -311,12 +282,12 @@ int main(int argc, char **argv)
 
     free(inputF32);
     free(outputF32);
-    if(bitDepth == 0)
-    {
-        free(inputU8);
-        free(outputU8);
-    }
     free(roiTensor);
+    if(testCase == 3)
+    {
+        free(inputF32Second);
+        free(roiTensorSecond);
+    }
     if(meanTensor != nullptr)
         free(meanTensor);
     if(stdDevTensor != nullptr)

@@ -1256,15 +1256,15 @@ void compare_outputs_pkd_and_pln1_concat(Rpp8u* output, Rpp8u* refOutput, RpptDe
 }
 
 // compares the output of PLN3-PLN3 variants.This function compares the output buffer of pln3 format with its reference output in pkd3 format.
-void compare_outputs_pln3(Rpp8u* output, Rpp8u* refOutput, RpptDescPtr dstDescPtr, RpptImagePatch *srcImgSizes, int refOutputHeight, int refOutputWidth, int refOutputSize, int &fileMatch)
+void compare_outputs_pln3(Rpp8u* output, Rpp8u* refOutput, RpptDescPtr dstDescPtr, RpptImagePatch *dstImgSizes, int refOutputHeight, int refOutputWidth, int refOutputSize, int &fileMatch)
 {
     Rpp8u *rowTemp, *rowTempRef, *outVal, *outRefVal, *outputTemp, *outputTempRef, *outputTempChn, *outputTempRefChn;
     for(int imageCnt = 0; imageCnt < dstDescPtr->n; imageCnt++)
     {
         outputTemp = output + imageCnt * dstDescPtr->strides.nStride;
         outputTempRef = refOutput + imageCnt * refOutputSize;
-        int height = srcImgSizes[imageCnt].height;
-        int width = srcImgSizes[imageCnt].width;
+        int height = dstImgSizes[imageCnt].height;
+        int width = dstImgSizes[imageCnt].width;
         int matchedIdx = 0;
         int refOutputHstride = refOutputWidth * dstDescPtr->c;
 
@@ -1393,13 +1393,16 @@ inline void compare_output(T* output, string funcName, RpptDescPtr srcDescPtr, R
     }
     int refOutputSize = refOutputHeight * refOutputWidth * dstDescPtr->c;
     Rpp64u binOutputSize = refOutputHeight * refOutputWidth * dstDescPtr->n * 4;
-    if((srcDescPtr->layout == RpptLayout::NHWC &&  additionalParam == 2) || (srcDescPtr->layout == RpptLayout::NCHW &&  additionalParam == 0))
-        binOutputSize = refOutputHeight * refOutputWidth * dstDescPtr->n * 2 * 4;
     int pln1RefStride = refOutputHeight * refOutputWidth * dstDescPtr->n * 3 ;
-    if(srcDescPtr->layout == RpptLayout::NCHW && dstDescPtr->c == 2)
+    if(testCase == 93)
     {
-        pln1RefStride = pln1RefStride * 2;
-        refOutputWidth = refOutputWidth / 2;
+        if((srcDescPtr->layout == RpptLayout::NHWC &&  additionalParam == 2) || (srcDescPtr->layout == RpptLayout::NCHW &&  additionalParam == 0))
+            binOutputSize = refOutputHeight * refOutputWidth * dstDescPtr->n * 2 * 4;
+        if(srcDescPtr->layout == RpptLayout::NCHW && dstDescPtr->c == 2)
+        {
+            pln1RefStride = pln1RefStride * 2;
+            refOutputWidth = refOutputWidth / 2;
+        }
     }
     string dataType[4] = {"_u8_", "_f16_", "_f32_", "_i8_"};
 
