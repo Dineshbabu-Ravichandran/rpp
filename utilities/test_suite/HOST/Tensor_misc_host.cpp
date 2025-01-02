@@ -147,10 +147,7 @@ int main(int argc, char **argv)
     {
         std::srand(0);
         for(int i = 0; i < iBufferSize; i++)
-        {
-            // inputF32[i] = static_cast<float>(std::rand() % 255);
-            inputF32[i] = static_cast<float>(i);
-        }
+            inputF32[i] = static_cast<float>(std::rand() % 255);
     }
 
     // Set the number of threads to be used by OpenMP pragma for RPP batch processing on host.
