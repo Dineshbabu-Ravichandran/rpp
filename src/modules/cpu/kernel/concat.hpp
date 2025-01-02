@@ -54,14 +54,18 @@ void concat_3D_tensor(Rpp32f *srcPtr, Rpp32f *srcPtr1, RpptGenericDescPtr srcGen
                 srcPtrRowTemp1 += vectorIncrement;
                 dstPtrRowTemp += vectorIncrement;
             }
+            for(; vectorLoopCount < bufferLength ; vectorLoopCount++)
+            {
+                *(dstPtrRowTemp + strides[2]) = *srcPtrRowTemp1++;
+                *dstPtrRowTemp++ = *srcPtrRowTemp++;
+            }
+            dstPtrRowTemp = dstPtrRow;
             for(Rpp32u k = vectorLoopCount ; k < dims[2] ; k++)
-            {
-                *(dstPtrRowTemp + k - vectorLoopCount) = *srcPtrRowTemp++;
-            }
+                *(dstPtrRowTemp + k) = *srcPtrRowTemp++;
+
+            dstPtrRowTemp = dstPtrRow + strides[2];
             for(Rpp32u k = vectorLoopCount ; k < dims1[2] ; k++)
-            {
-                *(dstPtrRowTemp + strides[2] + k - vectorLoopCount) = *srcPtrRowTemp1++;
-            }
+                *(dstPtrRowTemp + k ) = *srcPtrRowTemp1++;
             srcPtrRow += strides[2];
             srcPtrRow1 += strides1[2];
             dstPtrRow += dstStrides[2];
@@ -101,13 +105,20 @@ void concat_3D_tensor(Rpp8u *srcPtr, Rpp8u *srcPtr1, RpptGenericDescPtr srcGener
                 srcPtrRowTemp1 += vectorIncrement;
                 dstPtrRowTemp += vectorIncrement;
             }
+            for(; vectorLoopCount < bufferLength ; vectorLoopCount++)
+            {
+                *(dstPtrRowTemp + strides[2]) = *srcPtrRowTemp1++;
+                *dstPtrRowTemp++ = *srcPtrRowTemp++;
+            }
+            dstPtrRowTemp = dstPtrRow;
             for(Rpp32u k = vectorLoopCount; k < dims[2] ; k ++)
             {
-                *(dstPtrRowTemp + k - vectorLoopCount) = *srcPtrRowTemp++;
+                *(dstPtrRowTemp + k ) = *srcPtrRowTemp++;
             }
+            dstPtrRowTemp = dstPtrRow + strides[2];
             for(Rpp32u k = vectorLoopCount; k < dims1[2] ; k ++)
             {
-                *(dstPtrRowTemp + strides[2] + k - vectorLoopCount) = *srcPtrRowTemp1++;
+                *(dstPtrRowTemp + k) = *srcPtrRowTemp1++;
             }
             srcPtrRow += strides[2];
             srcPtrRow1 += strides1[2];
@@ -133,33 +144,6 @@ void concat_3D_axismask0_tensor(Rpp8u *srcPtr, Rpp8u *srcPtr1, RpptGenericDescPt
         Rpp8u *srcPtrRow = srcPtr;
         Rpp8u *srcPtrRow1 = srcPtr1;
         Rpp8u *dstPtrRow = dstPtr;
-        // for(Rpp32u j = 0; j < dims[1]; j++)
-        // {
-        //     Rpp8u *srcPtrRowTemp = srcPtrRow;
-        //     Rpp8u *srcPtrRowTemp1 = srcPtrRow1;
-        //     Rpp8u *dstPtrRowTemp = dstPtrRow;
-        //     Rpp32u vectorLoopCount = 0;
-        //     __m256 pDst ;
-        //     for(; vectorLoopCount < alignedLength ; vectorLoopCount += vectorIncrement)
-        //     {
-        //         rpp_simd_load(rpp_load8_u8_to_f32_avx, srcPtrRowTemp, &pDst); 
-        //         rpp_simd_store(rpp_store8_f32_to_u8_avx, dstPtrRowTemp, pDst);
-        //         rpp_simd_load(rpp_load8_u8_to_f32_avx, srcPtrRowTemp1, &pDst); 
-        //         rpp_simd_store(rpp_store8_f32_to_u8_avx, (dstPtrRowTemp + strides[1]) , pDst);
-        //         srcPtrRowTemp += vectorIncrement;
-        //         srcPtrRowTemp1 += vectorIncrement;
-        //         dstPtrRowTemp += vectorIncrement;
-        //     }
-        //     for(; vectorLoopCount < dims[2] ; vectorLoopCount ++)
-        //     {
-        //         *(dstPtrRowTemp + strides[1]) = *srcPtrRowTemp1++;
-        //         *dstPtrRowTemp++ = *srcPtrRowTemp++;
-        //     }
-
-        //     srcPtrRow += strides[2];
-        //     srcPtrRow1 += strides[2];
-        //     dstPtrRow += (strides[2]);
-        // }
         for(Rpp32u j = 0; j < dims[1]; j++)
         {
             Rpp8u *srcPtrRowTemp = srcPtrRow;
