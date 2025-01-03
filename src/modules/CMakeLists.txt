@@ -26,6 +26,8 @@ project(modules)
 
 if( "${BACKEND}" STREQUAL "HIP")
     file(GLOB RPP_KERNELS hip/kernel/*.cpp)
+    # message("RPP_KERNELS: ${RPP_KERNELS}")
+    set(RPP_KERNELS "")
 elseif( "${BACKEND}" STREQUAL "OCL")
     file(GLOB RPP_KERNELS cl/kernel/*.cl)
 endif()
@@ -76,6 +78,26 @@ function(add_kernel_includes KERNEL_FILES)
 endfunction()
 
 file(GLOB CPPFILES "*.cpp" )
+message("List of .cpp files: ${CPPFILES}")
+# Initialize two lists: one for included and one for excluded files
+set(FILTERED_CPPFILES "")
+set(EXCLUDED_CPPFILES "")
+
+# Iterate through all the collected files
+foreach(file ${CPPFILES})
+    if(NOT file MATCHES ".*/rppi[^/]*\\.cpp$")
+        list(APPEND FILTERED_CPPFILES ${file})
+    else()
+        list(APPEND EXCLUDED_CPPFILES ${file})
+    endif()
+endforeach()
+
+# Print the included files
+message("Included .cpp files: ${FILTERED_CPPFILES}")
+
+# Print the excluded files
+message("Excluded .cpp files: ${EXCLUDED_CPPFILES}")
+set(CPPFILES ${FILTERED_CPPFILES})
 list(APPEND Rpp_Source ${CPPFILES})
 list(APPEND Rpp_Source ${PROJECT_BINARY_DIR}/kernel.cpp)
 list(APPEND Rpp_Source ${PROJECT_BINARY_DIR}/kernel_includes.cpp)
@@ -90,7 +112,25 @@ if( "${BACKEND}" STREQUAL "HIP")
     # Add HIP kernels
     file(GLOB MOD_HIP_CPP "hip/*.cpp" )
     file(GLOB MOD_HIP_CPP_KERNELS "hip/kernel/*.cpp" )
-    list(APPEND Rpp_Source ${CPPFILES} ${MOD_HIP_CPP} ${MOD_HIP_CPP_KERNELS})
+
+    # Print the values of the variables
+    message("MOD_HIP_CPP files: ${MOD_HIP_CPP}")
+    message("MOD_HIP_CPP_KERNELS files: ${MOD_HIP_CPP_KERNELS}")
+    # Create a new list to store filtered files
+    set(FILTERED_MOD_HIP_CPP)
+
+    # Loop through each file and exclude those containing 'hip_'
+    foreach(file ${MOD_HIP_CPP})
+        if(NOT file MATCHES "hip_")
+            list(APPEND FILTERED_MOD_HIP_CPP ${file})
+        elseif(file MATCHES "hip_tensor")
+        endif()
+    endforeach()
+
+    # Print the filtered list
+    message("Filtered MOD_HIP_CPP files: ${FILTERED_MOD_HIP_CPP}")
+    set(MOD_HIP_CPP_KERNELS "")
+    list(APPEND Rpp_Source ${CPPFILES} ${FILTERED_MOD_HIP_CPP} ${MOD_HIP_CPP_KERNELS})
     message("-- ${Green}HIP kernels added${ColourReset}")
 
     # Set HIP compiler and flags
@@ -106,6 +146,9 @@ if( "${BACKEND}" STREQUAL "HIP")
     set(ROCM_INC ${ROCM_PATH}/include/)
     list(APPEND HIP_LOCAL_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/src/include/hip/ ${CMAKE_SOURCE_DIR}/src/include/common/)
     set(INCLUDE_LIST ${ROCM_INC} ${HIP_LOCAL_INCLUDE_DIRS} ${INCLUDE_LIST})
+    # Print the contents of HIP_LOCAL_INCLUDE_DIRS
+    message("HIP_LOCAL_INCLUDE_DIRS contains: ${HIP_LOCAL_INCLUDE_DIRS}")
+    # set(INCLUDE_LIST ${ROCM_INC} ${INCLUDE_LIST})
 elseif( "${BACKEND}" STREQUAL "OCL")
     # Add OpenCL kernels
     file(GLOB MOD_CL_CPP "cl/*.cpp" )

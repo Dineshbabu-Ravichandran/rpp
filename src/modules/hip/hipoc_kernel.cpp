@@ -29,9 +29,9 @@ SOFTWARE.
 
 #include "rpp/errors.hpp"
 #include "rpp/hipoc_kernel.hpp"
-#if defined(STATIC)
-#include "rpp/hip_kernels.hpp"
-#endif
+// #if defined(STATIC)
+// #include "rpp/hip_kernels.hpp"
+// #endif
 
 namespace rpp {
 
@@ -74,19 +74,19 @@ void HIPOCKernelInvoke::run(void* args, std::size_t size) const
                                            reinterpret_cast<void**>(&config),
                                            start.get(),
                                            stop.get());
-#elif defined(STATIC)
-            //  std::cout<<"Going the static hipLaunchKernel"<<std::endl;
+// #elif defined(STATIC)
+//             //  std::cout<<"Going the static hipLaunchKernel"<<std::endl;
 
-            std::map<std::string, const void*> f = funMap1();
-            auto status = hipLaunchKernel(f[name],
-                                           dim3(gdims[0],gdims[1],gdims[2]),
-                                           dim3(ldims[0],ldims[1],ldims[2]),
-                                           reinterpret_cast<void**>(args),
-	    				   0, stream);
-            // std::cout<<"Invoking kernel"<<name<<std::endl;
+//             std::map<std::string, const void*> f = funMap1();
+//             auto status = hipLaunchKernel(f[name],
+//                                            dim3(gdims[0],gdims[1],gdims[2]),
+//                                            dim3(ldims[0],ldims[1],ldims[2]),
+//                                            reinterpret_cast<void**>(args),
+// 	    				   0, stream);
+//             // std::cout<<"Invoking kernel"<<name<<std::endl;
 #endif
-    if(status != hipSuccess)
-        RPP_THROW_HIP_STATUS(status, "Failed to launch kernel");
+    // if(status != hipSuccess)
+    //     RPP_THROW_HIP_STATUS(status, "Failed to launch kernel");
 
     if(callback)
     {
