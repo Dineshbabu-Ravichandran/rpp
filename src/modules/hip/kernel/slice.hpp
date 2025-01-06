@@ -1,4 +1,5 @@
-#include "slice.hpp"
+#include <hip/hip_runtime.h>
+#include "rpp_hip_common.hpp"
 
 template <typename T>
 RppStatus hip_exec_slice_tensor(T *srcPtr,
