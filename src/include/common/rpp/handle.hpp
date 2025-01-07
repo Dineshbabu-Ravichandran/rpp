@@ -90,7 +90,7 @@ struct Handle : rppHandle
     void rpp_destroy_object_host();
 
     // Allocator related
-    // void SetAllocator(rppAllocatorFunction allocator, rppDeallocatorFunction deallocator, void* allocatorContext) const;
+    void SetAllocator(rppAllocatorFunction allocator, rppDeallocatorFunction deallocator, void* allocatorContext) const;
 
     // Device handle related
     Handle(rppAcceleratorQueue_t stream);

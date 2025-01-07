@@ -130,14 +130,14 @@ struct HandleImpl
 
     HandleImpl() : ctx(get_ctx()) {}
 
-    StreamPtr create_stream()
-    {
-        hipStream_t result;
-        auto status = hipStreamCreate(&result);
-        if(status != hipSuccess)
-            RPP_THROW_HIP_STATUS(status, "Failed to allocate stream");
-        return StreamPtr{result, &hipStreamDestroy};
-    }
+    // StreamPtr create_stream()
+    // {
+    //     hipStream_t result;
+    //     auto status = hipStreamCreate(&result);
+    //     if(status != hipSuccess)
+    //         RPP_THROW_HIP_STATUS(status, "Failed to allocate stream");
+    //     return StreamPtr{result, &hipStreamDestroy};
+    // }
 
     static StreamPtr reference_stream(hipStream_t s)
     {
@@ -277,20 +277,20 @@ Handle::Handle(rppAcceleratorQueue_t stream, size_t batchSize) : impl(new Handle
     RPP_LOG_I(*this);
 }
 
-Handle::Handle(rppAcceleratorQueue_t stream) : impl(new HandleImpl())
-{
-    this->impl->device = get_device_id();
-    this->impl->ctx    = get_ctx();
+// Handle::Handle(rppAcceleratorQueue_t stream) : impl(new HandleImpl())
+// {
+//     this->impl->device = get_device_id();
+//     this->impl->ctx    = get_ctx();
 
-    if(stream == nullptr)
-        this->impl->stream = HandleImpl::reference_stream(nullptr);
-    else
-        this->impl->stream = HandleImpl::reference_stream(stream);
+//     if(stream == nullptr)
+//         this->impl->stream = HandleImpl::reference_stream(nullptr);
+//     else
+//         this->impl->stream = HandleImpl::reference_stream(stream);
 
-    this->SetAllocator(nullptr, nullptr, nullptr);
-    impl->PreInitializeBuffer();
-    RPP_LOG_I(*this);
-}
+//     this->SetAllocator(nullptr, nullptr, nullptr);
+//     impl->PreInitializeBuffer();
+//     RPP_LOG_I(*this);
+// }
 
 Handle::Handle(size_t batchSize, Rpp32u numThreads) : impl(new HandleImpl())
 {
@@ -428,12 +428,12 @@ InitHandle* Handle::GetInitHandle() const
     return impl->initHandle;
 }
 
-// void Handle::SetAllocator(rppAllocatorFunction allocator, rppDeallocatorFunction deallocator, void* allocatorContext) const
-// {
-//     this->impl->allocator.allocator = allocator == nullptr ? default_allocator : allocator;
-//     this->impl->allocator.deallocator = deallocator == nullptr ? default_deallocator : deallocator;
-//     this->impl->allocator.context = allocatorContext;
-// }
+void Handle::SetAllocator(rppAllocatorFunction allocator, rppDeallocatorFunction deallocator, void* allocatorContext) const
+{
+    this->impl->allocator.allocator = allocator == nullptr ? default_allocator : allocator;
+    this->impl->allocator.deallocator = deallocator == nullptr ? default_deallocator : deallocator;
+    this->impl->allocator.context = allocatorContext;
+}
 
 // void Handle::EnableProfiling(bool enable)
 // {
