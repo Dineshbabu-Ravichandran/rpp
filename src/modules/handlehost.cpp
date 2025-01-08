@@ -44,9 +44,6 @@ struct HandleImpl
     {
         this->initHandle = new InitHandle();
         this->initHandle->nbatchSize = this->nBatchSize;
-        this->initHandle->mem.mcpu.maxSrcSize = (RppiSize *)malloc(sizeof(RppiSize) * this->nBatchSize);
-        this->initHandle->mem.mcpu.maxDstSize = (RppiSize *)malloc(sizeof(RppiSize) * this->nBatchSize);
-        this->initHandle->mem.mcpu.roiPoints = (RppiROI *)malloc(sizeof(RppiROI) * this->nBatchSize);
         this->initHandle->mem.mcpu.scratchBufferHost = (Rpp32f *)malloc(sizeof(Rpp32f) * 99532800 * this->nBatchSize); // 7680 * 4320 * 3
     }
 };
@@ -61,28 +58,12 @@ Handle::Handle(size_t batchSize, Rpp32u numThreads) : impl(new HandleImpl())
     impl->PreInitializeBufferCPU();
 }
 
-Handle::Handle() : impl(new HandleImpl())
-{
-    impl->PreInitializeBufferCPU();
-    impl->numThreads = std::min(impl->numThreads, std::thread::hardware_concurrency());
-    if(impl->numThreads == 0)
-        impl->numThreads = impl->nBatchSize;
-    RPP_LOG_I(*this);
-}
 
 Handle::~Handle() {}
 
 void Handle::rpp_destroy_object_host()
 {
-    free(this->GetInitHandle()->mem.mcpu.maxSrcSize);
-    free(this->GetInitHandle()->mem.mcpu.maxDstSize);
-    free(this->GetInitHandle()->mem.mcpu.roiPoints);
     free(this->GetInitHandle()->mem.mcpu.scratchBufferHost);
-}
-
-size_t Handle::GetBatchSize() const
-{
-    return this->impl->nBatchSize;
 }
 
 Rpp32u Handle::GetNumThreads() const
