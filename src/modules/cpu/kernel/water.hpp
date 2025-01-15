@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include "rppdefs.h"
 #include "rpp_cpu_simd.hpp"
+#include "rpp_cpu_simd_math.hpp"
 #include "rpp_cpu_common.hpp"
 
 inline void compute_water_src_loc_avx(__m256 &pDstY, __m256 &pDstX, __m256 &pSrcY, __m256 &pSrcX, __m256 *pWaterParams,

@@ -26,6 +26,7 @@ SOFTWARE.
 #define HOST_COLOR_MODER_CONVERSIONS_HPP
 
 #include "rpp_cpu_common.hpp"
+#include "rpp_cpu_simd_math.hpp"
 
 /**************** channel_extract ***************/
 

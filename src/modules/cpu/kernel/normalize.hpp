@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include "rppdefs.h"
 #include "rpp_cpu_simd.hpp"
+#include "rpp_cpu_simd_math.hpp"
 #include "rpp_cpu_common.hpp"
 
 // Recursive reduction helper function to compute difference of input with mean and squares them up

@@ -32,6 +32,7 @@ SOFTWARE.
 #include <rppdefs.h>
 #include <omp.h>
 #include "rpp_cpu_simd.hpp"
+#include "rpp_cpu_simd_math.hpp"
 
 #define PI                              3.14159265
 #define PI_OVER_180                     0.0174532925

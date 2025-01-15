@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include "rppdefs.h"
 #include "rpp_cpu_simd.hpp"
+#include "rpp_cpu_simd_math.hpp"
 #include "rpp_cpu_common.hpp"
 
 inline void compute_gaussian_noise_params_initialize_4_host_sse(Rpp32f &mean, Rpp32f &stdDev, __m128 *pGaussianNoiseParams)
